@@ -60,14 +60,14 @@ export default function QuoteListCard({ quote, currency = "NZD", nowMs, onFollow
   }
 
   return (
-    <div className="apple-surface rounded-[18px] border border-border bg-card transition-colors duration-200 hover:border-primary/40">
+    <div className="apple-surface rounded-[18px] border border-border bg-card">
       <div className="flex items-center justify-between gap-2 p-4 sm:px-5">
         <Link
           to="/app/q/$id/check"
           params={{ id: quote.id }}
           className="flex min-w-0 flex-1 items-center justify-between gap-3"
         >
-          <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border/50 bg-primary/5 text-primary sm:flex"><FileText size={20} strokeWidth={1.4} /></span>
+          <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-background text-foreground sm:flex"><FileText size={20} strokeWidth={1.4} /></span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <p className="truncate text-[17px] font-semibold text-foreground">
@@ -101,7 +101,7 @@ export default function QuoteListCard({ quote, currency = "NZD", nowMs, onFollow
             type="button"
             onClick={handleCopyLink}
             aria-label="Copy homeowner quote link"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground hover:text-foreground"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-background text-muted-foreground hover:text-foreground"
           >
             <Link2 className="h-4 w-4" />
           </button>

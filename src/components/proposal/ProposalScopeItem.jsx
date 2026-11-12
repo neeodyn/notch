@@ -11,7 +11,7 @@ export default function ProposalScopeItem({ item, meta, currency, optional = fal
           <div className="flex items-start justify-between gap-3"><h3 className="text-lg font-semibold tracking-tight sm:text-xl">{item.name || `Area ${item.area_number}`}</h3><span className="tabular-money shrink-0 text-base font-semibold sm:text-lg">{item.price != null ? `${optional ? "+" : ""}${formatMoney(item.price, currency)}` : "TBC"}</span></div>
           <p className="tabular-money mt-2 text-[11px] leading-relaxed text-muted-foreground">{meta}</p>
           <p className="mt-3 text-sm leading-relaxed text-foreground/75">{item.customer_description}</p>
-          {item.colour && <span className="proposal-colour"><span className="h-2 w-2 rounded-full border border-border bg-card" />{item.colour}</span>}
+          {item.colour && <span className="proposal-colour">{item.colour}</span>}
         </div>
       </div>
     </Tag>

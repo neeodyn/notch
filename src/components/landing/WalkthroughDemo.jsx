@@ -146,32 +146,32 @@ export default function WalkthroughDemo() {
     <section
       id="walkthrough"
       aria-label="40-second house walk demo"
-      className="walkthrough-panel apple-surface rounded-[32px] border border-border bg-card p-4 sm:p-8"
+      className="walkthrough-panel apple-surface border border-border bg-card p-4 sm:p-9"
     >
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <span className="inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
-          <span className="text-[13px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">
+          
+          <span className="text-[15px] font-medium text-muted-foreground">
             Interactive 40-second walk · 14 Kauri St, Ponsonby
           </span>
         </div>
-        <span className="tabular-money rounded-full bg-secondary px-3 py-1 text-[13px] font-semibold text-foreground">
+        <span className="tabular-money rounded-full bg-background px-3.5 py-1.5 text-[13px] font-medium text-foreground">
           {formattedClock}
         </span>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-12">
         {/* Camera + Voice Frame */}
-        <div className="relative overflow-hidden rounded-[18px] bg-zinc-950 text-white lg:col-span-7">
-          <div className="relative aspect-[16/11] w-full overflow-hidden sm:aspect-[16/10]">
+        <div className="relative overflow-hidden rounded-[26px] bg-zinc-950 text-white lg:col-span-7 lg:min-h-[440px]">
+          <div className="relative aspect-[16/11] w-full overflow-hidden sm:aspect-[16/10] lg:absolute lg:inset-0 lg:aspect-auto">
             <img
               src={activeStep.photoUrl}
               alt={activeStep.stage}
               className="h-full w-full object-cover opacity-90 transition-opacity duration-300"
             />
-            <div className="absolute inset-x-3 top-3 flex items-center justify-between rounded-xl bg-black/70 px-3.5 py-2 backdrop-blur-md">
+            <div className="absolute inset-x-3 top-3 flex items-center justify-between rounded-full bg-black/55 px-4 py-2 backdrop-blur-xl">
               <div className="flex items-center gap-2">
-                <Mic className="h-4 w-4 text-emerald-400" />
+                <Mic className="h-4 w-4" />
                 <span className="text-[13px] font-semibold">{activeStep.stage}</span>
               </div>
               <span className="tabular-money text-[13px] font-semibold text-zinc-200">
@@ -190,7 +190,7 @@ export default function WalkthroughDemo() {
               </div>
             )}
 
-            <div className="absolute inset-x-3 bottom-3 rounded-xl bg-black/75 p-3.5 backdrop-blur-md">
+            <div className="absolute inset-x-3 bottom-3 rounded-[20px] bg-black/55 p-4 backdrop-blur-xl">
               <p className="text-[14px] leading-snug text-zinc-100">
                 &ldquo;{activeStep.spoken}&rdquo;
               </p>
@@ -207,11 +207,11 @@ export default function WalkthroughDemo() {
         </div>
 
         {/* Live Structured Quote Output */}
-        <div className="flex flex-col justify-between rounded-[18px] border border-border/70 bg-background p-4 sm:p-5 lg:col-span-5">
+        <div className="flex flex-col justify-between rounded-[26px] bg-background p-5 sm:p-6 lg:col-span-5">
           <div>
             <div className="flex items-start justify-between gap-2 border-b border-border pb-3">
               <div>
-                <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+                <p className="text-[13px] font-medium text-muted-foreground">
                   Kauri Coast Painters
                 </p>
                 <p className="mt-0.5 text-[17px] font-semibold text-foreground">
@@ -235,7 +235,7 @@ export default function WalkthroughDemo() {
                 activeStep.lines.map((line) => (
                   <div
                     key={line.label}
-                    className="flex items-start justify-between gap-2 rounded-xl border border-border bg-card px-3.5 py-2.5"
+                    className="flex items-start justify-between gap-2 rounded-2xl bg-card px-4 py-3"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-[14px] font-semibold text-foreground">
@@ -277,12 +277,12 @@ export default function WalkthroughDemo() {
       </div>
 
       {/* Playback & Step Selector */}
-      <div className="mt-5 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handlePlayPause}
-            className="flex min-h-[44px] items-center gap-2 rounded-xl bg-primary px-4 text-[15px] font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90"
+            className="flex min-h-[44px] items-center gap-2 rounded-full bg-primary px-5 text-[15px] font-medium text-primary-foreground transition-opacity duration-200 hover:opacity-90"
           >
             {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             {playing
@@ -298,7 +298,7 @@ export default function WalkthroughDemo() {
               setSeconds(0);
             }}
             aria-label="Restart walkthrough"
-            className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground hover:text-foreground"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-background text-muted-foreground hover:text-foreground"
           >
             <RotateCcw className="h-4 w-4" />
           </button>
@@ -315,10 +315,10 @@ export default function WalkthroughDemo() {
                   setPlaying(false);
                   setSeconds(step.at + 2);
                 }}
-                className={`flex min-h-[44px] items-center gap-1.5 rounded-xl px-3.5 text-[14px] font-medium transition-colors duration-200 ${
+                className={`flex min-h-[44px] items-center gap-1.5 rounded-full px-4 text-[14px] font-medium transition-colors duration-200 ${
                   isCurrent
-                    ? "bg-accent text-accent-foreground"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                    ? "bg-foreground text-background"
+                    : "bg-background text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {seconds > step.until && <Check className="h-3.5 w-3.5" />}

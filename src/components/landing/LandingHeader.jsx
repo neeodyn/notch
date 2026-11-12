@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Moon, PaintRoller, Sun, Menu, X, ArrowUpRight } from "lucide-react";
+import { Moon, PaintRoller, Sun, Menu, X } from "lucide-react";
 import { SAMPLE_QUOTE_TOKEN } from "@/components/sample/sampleQuoteData";
 
 export default function LandingHeader() {
@@ -16,11 +16,11 @@ export default function LandingHeader() {
   return (
     <header className="premium-header">
       <div className="premium-nav glass-panel">
-        <Link to="/" className="flex min-h-11 items-center gap-2.5 text-xl font-semibold tracking-tight"><span className="brand-mark"><PaintRoller size={16} /></span>notch<span className="ml-1 text-[10px] font-medium text-muted-foreground">NZ</span></Link>
-        <nav aria-label="Website navigation" className="hidden items-center gap-7 text-[13px] font-medium text-muted-foreground md:flex"><a href="#how-it-works" className="hover:text-foreground">The experience</a><Link to="/q/$token" params={{ token: SAMPLE_QUOTE_TOKEN }} className="hover:text-foreground">Sample quote</Link><a href="#pricing" className="hover:text-foreground">Pricing</a></nav>
-        <div className="flex items-center gap-1 sm:gap-2"><button type="button" onClick={toggleTheme} aria-label={dark ? "Use light theme" : "Use dark theme"} className="nav-icon">{dark ? <Sun size={17} /> : <Moon size={17} />}</button><Link to="/login" className="hidden min-h-11 items-center px-3 text-[13px] font-medium sm:flex">Sign in</Link><Link to="/app" className="nav-cta">Start free <ArrowUpRight size={14} /></Link><button type="button" className="nav-icon md:hidden" aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? <X size={19} /> : <Menu size={19} />}</button></div>
+        <Link to="/" className="flex min-h-11 items-center gap-2.5 text-[19px] font-semibold tracking-[-0.03em]"><span className="brand-mark"><PaintRoller size={15} /></span>notch</Link>
+        <nav aria-label="Website navigation" className="hidden items-center gap-8 text-[13px] text-foreground/80 md:flex"><a href="#how-it-works" className="hover:text-foreground">How it works</a><Link to="/q/$token" params={{ token: SAMPLE_QUOTE_TOKEN }} className="hover:text-foreground">Sample quote</Link><a href="#pricing" className="hover:text-foreground">Pricing</a></nav>
+        <div className="flex items-center gap-1 sm:gap-2"><button type="button" onClick={toggleTheme} aria-label={dark ? "Use light theme" : "Use dark theme"} className="nav-icon">{dark ? <Sun size={16} /> : <Moon size={16} />}</button><Link to="/login" className="hidden min-h-11 items-center px-3 text-[13px] text-foreground/80 hover:text-foreground sm:flex">Sign in</Link><Link to="/app" className="nav-cta">Start free</Link><button type="button" className="nav-icon md:hidden" aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? <X size={18} /> : <Menu size={18} />}</button></div>
       </div>
-      {open && <nav aria-label="Mobile navigation" className="mobile-nav glass-panel"><a href="#how-it-works" onClick={() => setOpen(false)}>The experience</a><Link to="/q/$token" params={{ token: SAMPLE_QUOTE_TOKEN }} onClick={() => setOpen(false)}>Sample quote</Link><a href="#pricing" onClick={() => setOpen(false)}>Pricing</a><Link to="/login" onClick={() => setOpen(false)}>Sign in</Link></nav>}
+      {open && <nav aria-label="Mobile navigation" className="mobile-nav glass-panel"><a href="#how-it-works" onClick={() => setOpen(false)}>How it works</a><Link to="/q/$token" params={{ token: SAMPLE_QUOTE_TOKEN }} onClick={() => setOpen(false)}>Sample quote</Link><a href="#pricing" onClick={() => setOpen(false)}>Pricing</a><Link to="/login" onClick={() => setOpen(false)}>Sign in</Link></nav>}
     </header>
   );
 }

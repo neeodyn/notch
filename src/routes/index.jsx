@@ -19,17 +19,17 @@ function LandingPage() {
   return (
     <div className="premium-site">
       <LandingHeader />
-      <main className="premium-container">
+      <main>
         <PremiumHero />
         <PremiumWorkflow />
-        <section className="premium-section demo-section">
-          <div className="section-heading"><div><p className="eyebrow">SEE THE DIFFERENCE</p><h2>Forty seconds.<br /><span className="text-muted-foreground">From your words to their quote.</span></h2></div><p className="section-description">An interactive house walk.<br />Explore each step at your own pace.</p></div>
+        <section className="premium-section premium-container">
+          <div className="section-heading"><h2>Forty seconds.<br /><span>From your words to their&nbsp;quote.</span></h2><p className="section-description">An interactive house walk. Explore each step at your own pace.</p></div>
           <WalkthroughDemo />
         </section>
         <PremiumTrust />
         <PricingPlansSection />
-        <PremiumFooter />
       </main>
+      <PremiumFooter />
     </div>
   );
 }

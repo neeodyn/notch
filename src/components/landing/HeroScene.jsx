@@ -1,21 +1,21 @@
-import { Mic, LockKeyhole, ArrowUpRight } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { useRef } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { Mic } from "lucide-react";
 import { Image } from "@/components/ui/image";
 import HeroQuotePreview from "@/components/landing/HeroQuotePreview";
 
 export default function HeroScene() {
+  const ref = useRef(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "start 0.25"] });
+  const scale = useTransform(scrollYProgress, [0, 1], [0.9, 1]);
   return (
-    <div className="hero-scene">
+    <motion.div ref={ref} className="hero-scene" style={{ scale }}>
       <Image src="https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=2400&q=85" alt="Light-filled lounge with carefully finished walls and natural materials" className="hero-scene-image" />
-      <div className="hero-scene-shade" />
-      <div className="scene-caption"><span className="flex items-center gap-2 text-xs font-medium"><span className="h-1.5 w-1.5 rounded-full bg-primary" /> ONE WALK. EVERY DETAIL.</span><h2 className="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Less admin.<br />More of your craft.</h2></div>
       <div className="voice-preview glass-panel">
-        <div className="flex items-center gap-3"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"><Mic size={19} /></span><div><p className="text-xs font-semibold">Your words. A finished quote.</p><p className="mt-0.5 text-[11px] text-muted-foreground">A preview of your house walk</p></div><div className="ml-auto flex h-6 items-center gap-1" aria-hidden="true">{[8,16,24,13,20,9].map((height, i) => <span key={i} className="w-0.5 rounded-full bg-primary/60" style={{ height }} />)}</div></div>
-        <p className="mt-4 text-sm leading-relaxed text-foreground/80">“Lounge, five by four. Walls and ceiling,<br className="hidden sm:block" /> two coats. Eleven hundred.”</p>
-        <a href="#walkthrough" className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-primary">See it come together <ArrowUpRight size={14} /></a>
+        <div className="flex items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"><Mic size={18} /></span><div><p className="text-[15px] font-semibold leading-tight">Listening</p><p className="text-[13px] text-muted-foreground">Lounge · 0:14</p></div><div className="voice-bars" aria-hidden="true"><span /><span /><span /><span /><span /><span /></div></div>
+        <p className="mt-4 text-[17px] leading-snug">“Lounge, five by four. Walls and ceiling, two coats. Eleven hundred.”</p>
       </div>
       <HeroQuotePreview />
-      <div className="scene-security glass-panel"><LockKeyhole size={13} /><span>Private photos. Clear scope. Your prices.</span></div>
-    </div>
+    </motion.div>
   );
 }

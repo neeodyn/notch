@@ -165,11 +165,11 @@ function PublicHomeownerQuotePage() {
   return (
     <div className="premium-proposal min-h-screen bg-background text-foreground">
       {isSample && (
-        <div className="proposal-sample-ribbon glass-panel no-print px-4 py-3 text-center text-[12px] font-medium text-muted-foreground">
+        <div className="proposal-sample-ribbon no-print px-4 py-3 text-center text-[13px] text-muted-foreground">
           <span>
             Sample Ponsonby quote — tick the optional hallway ceiling below to watch 15% GST and the total update live.{" "}
           </span>
-          <Link to="/app" className="font-bold underline">
+          <Link to="/app" className="font-medium hover:underline">
             Start your 7-day free trial
           </Link>
         </div>
@@ -184,7 +184,7 @@ function PublicHomeownerQuotePage() {
 
         <section className="proposal-scope-section">
           <div className="proposal-section-label"><span>02</span><h2>Scope of painting work</h2></div>
-          <div className="proposal-scope-surface glass-panel">{baseItems.map((item) => <ProposalScopeItem key={item.id} item={item} meta={formatRoomMeta(item, businessSettings)} currency={currency} />)}</div>
+          <div className="proposal-scope-surface">{baseItems.map((item) => <ProposalScopeItem key={item.id} item={item} meta={formatRoomMeta(item, businessSettings)} currency={currency} />)}</div>
         </section>
 
         {optionalItems.length > 0 && (

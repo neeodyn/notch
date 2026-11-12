@@ -40,7 +40,7 @@ export default function ClientDetailsCard({ quote, highlightedKeys = [], onSaveP
 
   if (editing) {
     return (
-      <form onSubmit={handleSave} className="glass-panel space-y-3 rounded-[24px] border border-border bg-card p-4 sm:p-5">
+      <form onSubmit={handleSave} className="apple-surface space-y-3 rounded-[24px] border border-border bg-card p-4 sm:p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-[17px] font-semibold text-foreground">Client &amp; job details</h2>
           <button
@@ -130,7 +130,7 @@ export default function ClientDetailsCard({ quote, highlightedKeys = [], onSaveP
     <button
       type="button"
       onClick={() => setEditing(true)}
-      className={`w-full rounded-[18px] border border-border bg-card p-4 text-left transition-colors hover:border-primary/40 sm:p-5 ${
+      className={`apple-surface w-full rounded-[18px] border border-border bg-card p-4 text-left sm:p-5 ${
         isHighlighted ? "field-changed-glow" : ""
       }`}
     >

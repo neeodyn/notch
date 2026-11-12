@@ -4,8 +4,8 @@ import { SlidersHorizontal } from "lucide-react";
 export default function WorkspaceHeader({ businessName }) {
   return (
     <header className="workspace-header">
-      <div><p className="eyebrow">{businessName || "YOUR QUOTING WORKSPACE"}</p><h1 className="mt-2 font-display text-[42px] font-semibold leading-tight tracking-[-0.055em] sm:text-[50px]">Quotes<span className="text-primary">.</span></h1><p className="mt-2 text-sm text-muted-foreground">Great work starts with a clear plan.</p></div>
-      <Link to="/app/settings" aria-label="Business settings" className="workspace-settings glass-panel"><SlidersHorizontal size={19} strokeWidth={1.6} /></Link>
+      <div><p className="text-[15px] font-medium text-muted-foreground">{businessName || "Your quoting workspace"}</p><h1 className="mt-1 font-display text-[44px] font-semibold leading-none tracking-[-0.05em] sm:text-[56px]">Quotes</h1></div>
+      <Link to="/app/settings" aria-label="Business settings" className="workspace-settings"><SlidersHorizontal size={18} strokeWidth={1.8} /></Link>
     </header>
   );
 }

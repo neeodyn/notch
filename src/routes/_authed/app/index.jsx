@@ -122,7 +122,7 @@ function QuotesListScreen() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search client or street…"
-              className="h-11 w-full rounded-2xl border border-border bg-card pl-10 pr-4 text-[15px] text-foreground placeholder:text-muted-foreground"
+              className="h-11 w-full rounded-full border border-transparent bg-card pl-10 pr-4 text-[15px] text-foreground placeholder:text-muted-foreground"
             />
           </div>
         )}
@@ -138,8 +138,8 @@ function QuotesListScreen() {
                 onClick={() => setStatusFilter(tab.key)}
                 className={`min-h-[44px] shrink-0 rounded-full px-4 text-[14px] font-semibold transition-colors duration-200 ${
                   active
-                    ? "bg-primary text-primary-foreground"
-                    : "border border-border bg-card text-muted-foreground hover:text-foreground"
+                    ? "bg-foreground text-background"
+                    : "bg-card text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {tab.label}
