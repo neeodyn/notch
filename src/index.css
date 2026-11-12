@@ -4,28 +4,28 @@
 
 @layer base {
   :root {
-    --background: 240 11% 96.5%;
-    --foreground: 240 3% 11.8%;
+    --background: 48 14% 96.2%;
+    --foreground: 220 10% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 240 3% 11.8%;
+    --card-foreground: 220 10% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 3% 11.8%;
-    --primary: 153 43% 18%;
+    --popover-foreground: 220 10% 11%;
+    --primary: 156 44% 16%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 6% 92.5%;
-    --secondary-foreground: 240 3% 11.8%;
-    --muted: 240 6% 93%;
-    --muted-foreground: 240 2% 44%;
-    --accent: 153 28% 92%;
-    --accent-foreground: 153 43% 18%;
-    --destructive: 4 78% 50%;
+    --secondary: 45 10% 91.5%;
+    --secondary-foreground: 220 10% 12%;
+    --muted: 45 10% 92%;
+    --muted-foreground: 220 5% 43%;
+    --accent: 156 28% 92%;
+    --accent-foreground: 156 44% 16%;
+    --destructive: 4 76% 49%;
     --destructive-foreground: 0 0% 100%;
     --amber-surface: 38 92% 95%;
-    --amber-border: 38 85% 75%;
-    --amber-ink: 32 90% 28%;
-    --border: 240 6% 88.5%;
-    --input: 240 6% 88.5%;
-    --ring: 153 43% 18%;
+    --amber-border: 38 82% 74%;
+    --amber-ink: 31 88% 27%;
+    --border: 45 8% 87.5%;
+    --input: 45 8% 86%;
+    --ring: 156 44% 16%;
     --radius: 1.125rem;
     --font-heading: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
     --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
@@ -34,28 +34,28 @@
   }
 
   .dark {
-    --background: 240 6% 4.5%;
-    --foreground: 240 11% 96.5%;
-    --card: 240 4% 11%;
-    --card-foreground: 240 11% 96.5%;
-    --popover: 240 4% 12%;
-    --popover-foreground: 240 11% 96.5%;
-    --primary: 152 42% 38%;
+    --background: 220 10% 5.5%;
+    --foreground: 48 12% 96%;
+    --card: 220 8% 10.5%;
+    --card-foreground: 48 12% 96%;
+    --popover: 220 8% 11.5%;
+    --popover-foreground: 48 12% 96%;
+    --primary: 154 42% 40%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 4% 17%;
-    --secondary-foreground: 240 11% 96.5%;
-    --muted: 240 4% 16%;
-    --muted-foreground: 240 3% 62%;
-    --accent: 152 30% 16%;
-    --accent-foreground: 152 45% 75%;
+    --secondary: 220 7% 16%;
+    --secondary-foreground: 48 12% 96%;
+    --muted: 220 7% 15.5%;
+    --muted-foreground: 220 5% 63%;
+    --accent: 154 28% 16%;
+    --accent-foreground: 154 48% 76%;
     --destructive: 4 74% 54%;
     --destructive-foreground: 0 0% 100%;
-    --amber-surface: 36 55% 14%;
-    --amber-border: 36 65% 32%;
-    --amber-ink: 40 90% 74%;
-    --border: 240 4% 20%;
-    --input: 240 4% 20%;
-    --ring: 152 42% 42%;
+    --amber-surface: 36 52% 14%;
+    --amber-border: 36 62% 32%;
+    --amber-ink: 40 90% 75%;
+    --border: 220 6% 19.5%;
+    --input: 220 6% 19.5%;
+    --ring: 154 42% 42%;
   }
 
   * {
@@ -67,19 +67,24 @@
     font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
   }
 
   body {
-    @apply bg-background text-foreground font-body text-[17px] leading-[1.47] tracking-[-0.01em];
+    @apply bg-background text-foreground font-body text-[17px] leading-[1.47] tracking-[-0.011em];
   }
 }
 
 .large-title {
   font-family: var(--font-display);
   font-size: 34px;
-  line-height: 1.12;
-  letter-spacing: -0.024em;
+  line-height: 1.1;
+  letter-spacing: -0.026em;
   font-weight: 700;
+}
+
+.apple-surface {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.035);
 }
 
 .tabular-money {
@@ -100,7 +105,7 @@
     background-color: hsl(var(--accent));
   }
   50% {
-    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.22);
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.24);
     background-color: hsl(var(--accent));
   }
   100% {

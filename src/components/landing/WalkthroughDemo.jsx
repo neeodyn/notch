@@ -6,65 +6,111 @@ const WALKTHROUGH_STEPS = [
     at: 0,
     until: 10,
     timeLabel: "0:04",
-    stage: "Walking in",
+    stage: "Client & address",
     spoken:
-      "Quote for Claire Whitaker at 418 Hollow Creek Lane, phone 512-555-0148. Twenty-five percent deposit, back gate is 42 inches.",
-    photoUrl: "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=1000&q=80",
+      "Quote for Sarah Miller, 14 Kauri Street, Ponsonby, 021 555 0134. Thirty percent deposit.",
+    photoUrl: "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1000&q=80",
     snappedCount: 0,
     pin: null,
-    runningTotal: 0,
+    exclGst: 0,
+    gst: 0,
+    inclGst: 0,
     lines: [],
   },
   {
     at: 10,
-    until: 22,
+    until: 23,
     timeLabel: "0:14",
-    stage: "Snap Tree 1",
+    stage: "Lounge · 5 × 4 m",
     spoken:
-      "Tree one is this 62-foot Live Oak over the garage and cedar fence. Crown reduction, haul everything, fourteen fifty.",
-    photoUrl: "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=1000&q=80",
+      "Lounge, five by four, stud two-four, walls and ceiling, two coats in Resene Alabaster, eleven hundred.",
+    photoUrl: "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1000&q=80",
     snappedCount: 1,
-    pin: { n: 1, x: "52%", y: "36%" },
-    runningTotal: 1450,
-    lines: [{ label: "1. Live Oak · Crown reduce", price: "$1,450", badge: "Spoken" }],
-  },
-  {
-    at: 22,
-    until: 33,
-    timeLabel: "0:27",
-    stage: "Snap Tree 2",
-    spoken:
-      "Second tree, dying 48-foot Silver Maple on the side line. Full removal and haul for eighteen fifty. Make stump grind optional at two seventy-five.",
-    photoUrl: "https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?auto=format&fit=crop&w=1000&q=80",
-    snappedCount: 2,
-    pin: { n: 2, x: "46%", y: "42%" },
-    runningTotal: 3300,
+    pin: { n: 1, x: "64%", y: "28%" },
+    exclGst: 1100,
+    gst: 165,
+    inclGst: 1265,
     lines: [
-      { label: "1. Live Oak · Crown reduce", price: "$1,450", badge: "Spoken" },
-      { label: "2. Silver Maple · Remove", price: "$1,850", badge: "Spoken" },
-      { label: "Optional · Stump grind", price: "+$275", badge: "Optional" },
+      {
+        label: "Lounge · 5 × 4 m · stud 2.4",
+        metrics: "walls 38.9 m², ceiling 20 m² · 2 coats",
+        price: "$1,100",
+        badge: "Spoken",
+      },
     ],
   },
   {
-    at: 33,
+    at: 23,
+    until: 34,
+    timeLabel: "0:27",
+    stage: "Hallway · 8 × 1.2 m",
+    spoken:
+      "Hallway, eight by one-two, walls only, ceiling optional at one ninety, four hundred.",
+    photoUrl: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1000&q=80",
+    snappedCount: 2,
+    pin: null,
+    exclGst: 1500,
+    gst: 225,
+    inclGst: 1725,
+    lines: [
+      {
+        label: "Lounge · 5 × 4 m · stud 2.4",
+        metrics: "walls 38.9 m², ceiling 20 m² · 2 coats",
+        price: "$1,100",
+        badge: "Spoken",
+      },
+      {
+        label: "Hallway · 8 × 1.2 m",
+        metrics: "walls 39.7 m² · 2 coats",
+        price: "$400",
+        badge: "Spoken",
+      },
+      {
+        label: "Optional · Hallway Ceiling",
+        metrics: "ceiling 9.6 m² · 2 coats",
+        price: "+$190",
+        badge: "Optional",
+      },
+    ],
+  },
+  {
+    at: 34,
     until: 40,
     timeLabel: "0:38",
-    stage: "Ready to send",
-    spoken: "Done. Photos matched to both trees, optional stump separated, link ready to text the homeowner.",
-    photoUrl: "https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?auto=format&fit=crop&w=1000&q=80",
+    stage: "GST & link ready",
+    spoken:
+      "Done. Square metres calculated, room photos matched, 15% GST itemised, ready to text Sarah from the driveway.",
+    photoUrl: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1000&q=80",
     snappedCount: 2,
-    pin: { n: 2, x: "46%", y: "42%" },
-    runningTotal: 3300,
+    pin: null,
+    exclGst: 1500,
+    gst: 225,
+    inclGst: 1725,
     lines: [
-      { label: "1. Live Oak · Crown reduce", price: "$1,450", badge: "Spoken" },
-      { label: "2. Silver Maple · Remove", price: "$1,850", badge: "Spoken" },
-      { label: "Optional · Stump grind", price: "+$275", badge: "Optional" },
+      {
+        label: "Lounge · 5 × 4 m · stud 2.4",
+        metrics: "walls 38.9 m², ceiling 20 m² · 2 coats",
+        price: "$1,100",
+        badge: "Spoken",
+      },
+      {
+        label: "Hallway · 8 × 1.2 m",
+        metrics: "walls 39.7 m² · 2 coats",
+        price: "$400",
+        badge: "Spoken",
+      },
+      {
+        label: "Optional · Hallway Ceiling",
+        metrics: "ceiling 9.6 m² · 2 coats",
+        price: "+$190",
+        badge: "Optional",
+      },
     ],
   },
 ];
 
 export default function WalkthroughDemo() {
-  const [seconds, setSeconds] = useState(12);
+  const [seconds, setSeconds] = useState(25);
   const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
@@ -97,19 +143,25 @@ export default function WalkthroughDemo() {
   }
 
   return (
-    <section aria-label="40-second yard walkthrough" className="rounded-[20px] border border-border bg-card p-4 sm:p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <section
+      id="walkthrough"
+      aria-label="40-second house walk demo"
+      className="apple-surface rounded-[22px] border border-border bg-card p-4 sm:p-7"
+    >
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <span className="inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
-          <span className="text-[14px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-            40-second yard walk · Sample preview
+          <span className="text-[13px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">
+            Interactive 40-second walk · 14 Kauri St, Ponsonby
           </span>
         </div>
-        <span className="tabular-money text-[14px] font-medium text-muted-foreground">{formattedClock}</span>
+        <span className="tabular-money rounded-full bg-secondary px-3 py-1 text-[13px] font-semibold text-foreground">
+          {formattedClock}
+        </span>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-12">
-        {/* Simulated iPhone Capture Frame */}
+        {/* Camera + Voice Frame */}
         <div className="relative overflow-hidden rounded-[18px] bg-zinc-950 text-white lg:col-span-7">
           <div className="relative aspect-[16/11] w-full overflow-hidden sm:aspect-[16/10]">
             <img
@@ -117,12 +169,14 @@ export default function WalkthroughDemo() {
               alt={activeStep.stage}
               className="h-full w-full object-cover opacity-90 transition-opacity duration-300"
             />
-            <div className="absolute inset-x-3 top-3 flex items-center justify-between rounded-xl bg-black/70 px-3 py-2 backdrop-blur-md">
+            <div className="absolute inset-x-3 top-3 flex items-center justify-between rounded-xl bg-black/70 px-3.5 py-2 backdrop-blur-md">
               <div className="flex items-center gap-2">
                 <Mic className="h-4 w-4 text-emerald-400" />
-                <span className="text-[13px] font-medium">{activeStep.stage}</span>
+                <span className="text-[13px] font-semibold">{activeStep.stage}</span>
               </div>
-              <span className="tabular-money text-[13px] font-semibold text-zinc-200">{activeStep.timeLabel}</span>
+              <span className="tabular-money text-[13px] font-semibold text-zinc-200">
+                {activeStep.timeLabel}
+              </span>
             </div>
 
             {activeStep.pin && (
@@ -130,72 +184,100 @@ export default function WalkthroughDemo() {
                 style={{ left: activeStep.pin.x, top: activeStep.pin.y }}
                 className="absolute -translate-x-1/2 -translate-y-1/2"
               >
-                <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-primary text-[15px] font-bold text-white shadow-md">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-primary text-[13px] font-bold text-white shadow-md">
                   {activeStep.pin.n}
                 </span>
               </div>
             )}
 
-            <div className="absolute inset-x-3 bottom-3 rounded-xl bg-black/75 p-3 backdrop-blur-md">
-              <p className="text-[14px] leading-snug text-zinc-100">&ldquo;{activeStep.spoken}&rdquo;</p>
+            <div className="absolute inset-x-3 bottom-3 rounded-xl bg-black/75 p-3.5 backdrop-blur-md">
+              <p className="text-[14px] leading-snug text-zinc-100">
+                &ldquo;{activeStep.spoken}&rdquo;
+              </p>
               <div className="mt-2.5 flex items-center justify-between border-t border-white/15 pt-2 text-[12px] text-zinc-300">
                 <span className="flex items-center gap-1.5">
                   <Camera className="h-3.5 w-3.5" />
-                  {activeStep.snappedCount} {activeStep.snappedCount === 1 ? "tree snapped" : "trees snapped"}
+                  {activeStep.snappedCount}{" "}
+                  {activeStep.snappedCount === 1 ? "room snapped" : "rooms snapped"}
                 </span>
-                <span>One continuous stream</span>
+                <span>Single continuous recording</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Live Drafted Quote Output */}
-        <div className="flex flex-col justify-between rounded-[18px] bg-background p-4 sm:p-5 lg:col-span-5">
+        {/* Live Structured Quote Output */}
+        <div className="flex flex-col justify-between rounded-[18px] border border-border/70 bg-background p-4 sm:p-5 lg:col-span-5">
           <div>
             <div className="flex items-start justify-between gap-2 border-b border-border pb-3">
               <div>
-                <p className="text-[13px] font-medium text-muted-foreground">Client</p>
-                <p className="text-[17px] font-semibold text-foreground">Claire Whitaker</p>
-                <p className="text-[14px] text-muted-foreground">418 Hollow Creek Ln</p>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+                  Kauri Coast Painters
+                </p>
+                <p className="mt-0.5 text-[17px] font-semibold text-foreground">
+                  Sarah Miller
+                </p>
+                <p className="text-[14px] text-muted-foreground">
+                  14 Kauri Street, Ponsonby
+                </p>
               </div>
               <span className="rounded-full bg-secondary px-2.5 py-1 text-[12px] font-semibold text-secondary-foreground">
-                25% deposit
+                30% deposit
               </span>
             </div>
 
-            <div className="mt-3 space-y-2.5">
+            <div className="mt-3 space-y-2">
               {activeStep.lines.length === 0 ? (
-                <p className="py-6 text-center text-[15px] text-muted-foreground">
-                  Listening for first tree and spoken price…
+                <p className="py-8 text-center text-[15px] text-muted-foreground">
+                  Listening for first room dimensions and coats…
                 </p>
               ) : (
                 activeStep.lines.map((line) => (
                   <div
                     key={line.label}
-                    className="flex items-center justify-between rounded-xl border border-border bg-card px-3.5 py-2.5"
+                    className="flex items-start justify-between gap-2 rounded-xl border border-border bg-card px-3.5 py-2.5"
                   >
-                    <div>
-                      <p className="text-[15px] font-medium text-foreground">{line.label}</p>
-                      <span className="text-[12px] text-muted-foreground">{line.badge}</span>
+                    <div className="min-w-0">
+                      <p className="truncate text-[14px] font-semibold text-foreground">
+                        {line.label}
+                      </p>
+                      <p className="text-[12px] text-muted-foreground">{line.metrics}</p>
                     </div>
-                    <span className="tabular-money text-[16px] font-semibold text-foreground">{line.price}</span>
+                    <div className="shrink-0 text-right">
+                      <span className="tabular-money block text-[15px] font-bold text-foreground">
+                        {line.price}
+                      </span>
+                      <span className="text-[11px] font-medium text-muted-foreground">
+                        {line.badge}
+                      </span>
+                    </div>
                   </div>
                 ))
               )}
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
-            <span className="text-[14px] font-medium text-muted-foreground">Subtotal (before tax)</span>
-            <span className="tabular-money text-[22px] font-bold text-foreground">
-              ${activeStep.runningTotal.toLocaleString("en-US")}
-            </span>
+          <div className="mt-4 space-y-1 border-t border-border pt-3 text-[13px]">
+            <div className="flex justify-between text-muted-foreground">
+              <span>Excl. GST</span>
+              <span className="tabular-money">${activeStep.exclGst.toLocaleString("en-NZ")}</span>
+            </div>
+            <div className="flex justify-between text-muted-foreground">
+              <span>GST (15%)</span>
+              <span className="tabular-money">${activeStep.gst.toLocaleString("en-NZ")}</span>
+            </div>
+            <div className="flex items-baseline justify-between pt-1 text-foreground">
+              <span className="text-[14px] font-semibold">Total incl. GST</span>
+              <span className="tabular-money text-[21px] font-bold">
+                NZ${activeStep.inclGst.toLocaleString("en-NZ")}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Controls & Chapter Pills */}
-      <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* Playback & Step Selector */}
+      <div className="mt-5 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -203,21 +285,23 @@ export default function WalkthroughDemo() {
             className="flex min-h-[44px] items-center gap-2 rounded-xl bg-primary px-4 text-[15px] font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90"
           >
             {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-            {playing ? "Pause walk" : seconds >= 40 ? "Replay 40s walk" : "Play 40s walk"}
+            {playing
+              ? "Pause walk"
+              : seconds >= 40
+              ? "Replay 40s walk"
+              : "Play 40s walk"}
           </button>
-          {seconds > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                setPlaying(false);
-                setSeconds(0);
-              }}
-              aria-label="Reset walkthrough"
-              className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground hover:text-foreground"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              setPlaying(false);
+              setSeconds(0);
+            }}
+            aria-label="Restart walkthrough"
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground hover:text-foreground"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </button>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -231,7 +315,7 @@ export default function WalkthroughDemo() {
                   setPlaying(false);
                   setSeconds(step.at + 2);
                 }}
-                className={`flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-[14px] font-medium transition-colors duration-200 ${
+                className={`flex min-h-[44px] items-center gap-1.5 rounded-xl px-3.5 text-[14px] font-medium transition-colors duration-200 ${
                   isCurrent
                     ? "bg-accent text-accent-foreground"
                     : "bg-secondary text-muted-foreground hover:text-foreground"

@@ -52,6 +52,18 @@
       "type": "string",
       "description": "Unique 24+ character random public share token"
     },
+    "subtotal_excl_gst": {
+      "type": "number",
+      "default": 0
+    },
+    "gst_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "total_incl_gst": {
+      "type": "number",
+      "default": 0
+    },
     "subtotal": {
       "type": "number",
       "default": 0

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, LogOut, Moon, Sun, Upload } from "lucide-react";
+import { ArrowLeft, Check, LogOut, Moon, Sun, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -22,13 +22,21 @@ function SettingsScreen() {
   const runSave = useServerFn(saveBusinessProfile);
 
   const [dark, setDark] = useState(false);
-  const [name, setName] = useState(business?.name || "My Tree Service");
+  const [name, setName] = useState(business?.name || "My Painting & Decorating");
   const [phone, setPhone] = useState(business?.phone || "");
   const [email, setEmail] = useState(business?.email || user?.email || "");
-  const [currency, setCurrency] = useState(business?.currency || "USD");
-  const [taxRate, setTaxRate] = useState(business?.tax_rate ?? 0);
+  const [currency, setCurrency] = useState(business?.currency || "NZD");
+  const [gstNumber, setGstNumber] = useState(business?.gst_number || "");
+  const [pricesIncludeGst, setPricesIncludeGst] = useState(
+    Boolean(business?.prices_include_gst)
+  );
+  const [defaultStudM, setDefaultStudM] = useState(business?.default_stud_m ?? 2.4);
+  const [openingsPct, setOpeningsPct] = useState(business?.openings_pct ?? 10);
   const [minCharge, setMinCharge] = useState(business?.min_charge ?? 0);
   const [terms, setTerms] = useState(business?.terms || "");
+  const [billingInterval, setBillingInterval] = useState(
+    business?.billing_interval || "monthly"
+  );
   const [logoUri, setLogoUri] = useState(business?.logo_uri || "");
   const [logoPreview, setLogoPreview] = useState(business?.logo_url || "");
   const [priceBook, setPriceBook] = useState(business?.price_book || null);
@@ -50,7 +58,9 @@ function SettingsScreen() {
     if (!file) return;
     try {
       const { file_uri } = await base44.integrations.Core.UploadPrivateFile({ file });
-      const { signed_url } = await base44.integrations.Core.CreateFileSignedUrl({ file_uri });
+      const { signed_url } = await base44.integrations.Core.CreateFileSignedUrl({
+        file_uri,
+      });
       setLogoUri(file_uri);
       setLogoPreview(signed_url);
       toast.success("Logo updated");
@@ -65,18 +75,23 @@ function SettingsScreen() {
     try {
       await runSave({
         data: {
-          name: name.trim() || "My Tree Service",
+          name: name.trim() || "My Painting & Decorating",
           phone: phone.trim(),
           email: email.trim(),
           logo_uri: logoUri || null,
-          currency: currency || "USD",
-          tax_rate: Math.max(0, Number(taxRate) || 0),
+          currency: currency || "NZD",
+          gst_number: gstNumber.trim(),
+          gst_rate: 0.15,
+          prices_include_gst: pricesIncludeGst,
+          default_stud_m: Math.max(1.8, Number(defaultStudM) || 2.4),
+          openings_pct: Math.max(0, Math.min(50, Number(openingsPct) || 0)),
           min_charge: Math.max(0, Number(minCharge) || 0),
           terms: terms.trim(),
+          billing_interval: billingInterval,
           price_book: priceBook,
         },
       });
-      await router.invalidate();
+      await router.invalidate({ sync: true });
       toast.success("Settings saved");
     } catch (err) {
       toast.error(err?.message || "Could not save settings");
@@ -84,6 +99,8 @@ function SettingsScreen() {
       setSaving(false);
     }
   }
+
+  const isPaid = business?.plan === "active" || business?.plan === "founding";
 
   return (
     <div className="min-h-screen bg-background pb-28 text-foreground">
@@ -106,40 +123,109 @@ function SettingsScreen() {
         </button>
       </header>
 
-      <form onSubmit={handleSave} className="mx-auto mt-3 max-w-2xl space-y-6 px-4 sm:px-5">
+      <form
+        onSubmit={handleSave}
+        className="mx-auto mt-3 max-w-2xl space-y-6 px-4 sm:px-5"
+      >
         <h1 className="large-title text-foreground">Settings</h1>
 
-        {/* Plan & Trial Card */}
-        <section className="rounded-[18px] border border-border bg-card p-4 sm:p-5">
+        {/* Plans & 7-Day Trial Card */}
+        <section className="apple-surface space-y-4 rounded-[20px] border border-border bg-card p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <p className="text-[13px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">Plan</p>
-              <p className="mt-0.5 text-[18px] font-bold text-foreground">
-                {business?.plan === "active"
-                  ? "Notch Active"
+              <p className="text-[12px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">
+                Subscription &amp; trial
+              </p>
+              <p className="mt-0.5 text-[19px] font-bold text-foreground">
+                {business?.plan === "founding"
+                  ? "Founding Painter Plan"
+                  : business?.plan === "active"
+                  ? "Standard Plan"
                   : business?.trial_expired
-                  ? "7-day trial ended"
-                  : `Free trial · ${business?.trial_days_left ?? 7} days left`}
+                  ? "7-day free trial ended"
+                  : `Free trial · ${business?.trial_days_left ?? 7} days remaining`}
               </p>
             </div>
-            <span className="rounded-full bg-accent px-3 py-1 text-[13px] font-semibold text-accent-foreground">
-              {business?.plan === "active" ? "Active" : "Trial"}
-            </span>
+
+            <div className="inline-flex rounded-xl border border-border bg-background p-1">
+              <button
+                type="button"
+                onClick={() => setBillingInterval("monthly")}
+                className={`min-h-[36px] rounded-lg px-3 text-[12px] font-semibold ${
+                  billingInterval === "monthly"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground"
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingInterval("yearly")}
+                className={`min-h-[36px] rounded-lg px-3 text-[12px] font-semibold ${
+                  billingInterval === "yearly"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground"
+                }`}
+              >
+                Yearly
+              </button>
+            </div>
           </div>
-          <p className="mt-2 text-[14px] text-muted-foreground">
-            {business?.plan === "active"
-              ? "Unlimited quotes and homeowner links enabled."
-              : "Your 7-day clock starts on your first sent quote. Existing homeowner quote pages never expire."}
+
+          {!isPaid && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border-2 border-primary bg-background p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[15px] font-bold text-foreground">
+                    Founding Painter
+                  </span>
+                  <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-accent-foreground">
+                    First 20
+                  </span>
+                </div>
+                <p className="tabular-money mt-1.5 text-[26px] font-bold text-foreground">
+                  {billingInterval === "yearly" ? "NZ$390/yr" : "NZ$39/mo"}
+                </p>
+                <p className="mt-1 flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                  <Check className="h-3.5 w-3.5 text-primary" />
+                  <span>Founding rate locked for life</span>
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-border bg-background p-4">
+                <span className="text-[15px] font-bold text-foreground">Standard</span>
+                <p className="tabular-money mt-1.5 text-[26px] font-bold text-foreground">
+                  {billingInterval === "yearly" ? "NZ$490/yr" : "NZ$49/mo"}
+                </p>
+                <p className="mt-1 flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                  <Check className="h-3.5 w-3.5 text-primary" />
+                  <span>Unlimited quotes &amp; SMS follow-ups</span>
+                </p>
+              </div>
+            </div>
+          )}
+
+          <p className="text-[13px] text-muted-foreground">
+            {isPaid
+              ? "Unlimited house walks and homeowner quote links active."
+              : "7 days free from your first sent quote. Connect Stripe checkout when ready to activate live billing; previously sent homeowner quotes remain open forever."}
           </p>
         </section>
 
-        {/* Company Details */}
-        <section className="space-y-4 rounded-[18px] border border-border bg-card p-4 sm:p-5">
-          <h2 className="text-[18px] font-semibold text-foreground">Business profile</h2>
+        {/* Business & GST Profile */}
+        <section className="apple-surface space-y-4 rounded-[20px] border border-border bg-card p-5">
+          <h2 className="text-[18px] font-semibold text-foreground">
+            Business &amp; GST details
+          </h2>
 
           <div className="flex items-center gap-4">
             {logoPreview ? (
-              <Image src={logoPreview} alt="Logo" className="h-14 w-14 rounded-2xl border border-border object-cover" />
+              <Image
+                src={logoPreview}
+                alt="Logo"
+                className="h-14 w-14 rounded-2xl border border-border object-cover"
+              />
             ) : (
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary text-[12px] font-semibold text-muted-foreground">
                 Logo
@@ -148,13 +234,20 @@ function SettingsScreen() {
             <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl bg-secondary px-4 text-[14px] font-semibold text-foreground">
               <Upload className="h-4 w-4" />
               <span>Change logo</span>
-              <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleLogoUpload}
+              />
             </label>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block sm:col-span-2">
-              <span className="text-[14px] font-medium text-muted-foreground">Company name</span>
+              <span className="text-[14px] font-medium text-muted-foreground">
+                Company name
+              </span>
               <input
                 type="text"
                 value={name}
@@ -168,11 +261,26 @@ function SettingsScreen() {
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
+                placeholder="021 555 0198"
                 className="mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[16px]"
               />
             </label>
             <label className="block">
-              <span className="text-[14px] font-medium text-muted-foreground">Notification email</span>
+              <span className="text-[14px] font-medium text-muted-foreground">
+                GST number (optional)
+              </span>
+              <input
+                type="text"
+                value={gstNumber}
+                onChange={(e) => setGstNumber(e.target.value)}
+                placeholder="128-492-017"
+                className="tabular-money mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[16px]"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[14px] font-medium text-muted-foreground">
+                Notification email
+              </span>
               <input
                 type="email"
                 value={email}
@@ -187,27 +295,66 @@ function SettingsScreen() {
                 onChange={(e) => setCurrency(e.target.value)}
                 className="mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[16px]"
               >
-                <option value="USD">USD ($)</option>
-                <option value="CAD">CAD ($)</option>
-                <option value="AUD">AUD ($)</option>
                 <option value="NZD">NZD ($)</option>
+                <option value="AUD">AUD ($)</option>
+                <option value="USD">USD ($)</option>
                 <option value="GBP">GBP (£)</option>
               </select>
             </label>
+          </div>
+
+          <label className="flex min-h-[48px] cursor-pointer items-center justify-between gap-4 rounded-2xl border border-border bg-background px-4 py-3">
+            <div>
+              <span className="block text-[15px] font-semibold text-foreground">
+                Prices include 15% GST
+              </span>
+              <span className="text-[13px] text-muted-foreground">
+                {pricesIncludeGst
+                  ? "Line prices include GST (GST portion shown on summary)"
+                  : "Line prices are excl. GST, with 15% GST added at the bottom"}
+              </span>
+            </div>
+            <input
+              type="checkbox"
+              checked={pricesIncludeGst}
+              onChange={(e) => setPricesIncludeGst(e.target.checked)}
+              className="h-6 w-6 shrink-0 accent-[hsl(var(--primary))]"
+            />
+          </label>
+
+          <div className="grid gap-4 sm:grid-cols-3">
             <label className="block">
-              <span className="text-[14px] font-medium text-muted-foreground">Tax rate (%)</span>
+              <span className="text-[13px] font-medium text-muted-foreground">
+                Default stud (m)
+              </span>
               <input
                 type="number"
-                min="0"
-                max="30"
-                step="0.05"
-                value={taxRate}
-                onChange={(e) => setTaxRate(e.target.value)}
+                min="1.8"
+                max="6"
+                step="0.1"
+                value={defaultStudM}
+                onChange={(e) => setDefaultStudM(e.target.value)}
                 className="tabular-money mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[16px]"
               />
             </label>
-            <label className="block sm:col-span-2">
-              <span className="text-[14px] font-medium text-muted-foreground">Minimum job charge ($)</span>
+            <label className="block">
+              <span className="text-[13px] font-medium text-muted-foreground">
+                Openings deduction (%)
+              </span>
+              <input
+                type="number"
+                min="0"
+                max="50"
+                step="1"
+                value={openingsPct}
+                onChange={(e) => setOpeningsPct(e.target.value)}
+                className="tabular-money mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[16px]"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[13px] font-medium text-muted-foreground">
+                Min job charge ($)
+              </span>
               <input
                 type="number"
                 min="0"
@@ -217,16 +364,19 @@ function SettingsScreen() {
                 className="tabular-money mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[16px]"
               />
             </label>
-            <label className="block sm:col-span-2">
-              <span className="text-[14px] font-medium text-muted-foreground">Proposal terms</span>
-              <textarea
-                rows={3}
-                value={terms}
-                onChange={(e) => setTerms(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-input bg-background p-3 text-[15px]"
-              />
-            </label>
           </div>
+
+          <label className="block">
+            <span className="text-[14px] font-medium text-muted-foreground">
+              Proposal terms &amp; workmanship notes
+            </span>
+            <textarea
+              rows={3}
+              value={terms}
+              onChange={(e) => setTerms(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-input bg-background p-3 text-[15px]"
+            />
+          </label>
         </section>
 
         <PriceBookEditor value={priceBook} onChange={setPriceBook} />
@@ -242,7 +392,7 @@ function SettingsScreen() {
           </button>
         </div>
 
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-md safe-bottom">
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-xl safe-bottom">
           <div className="mx-auto max-w-2xl px-4 pt-3 sm:px-5">
             <button
               type="submit"

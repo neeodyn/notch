@@ -100,9 +100,21 @@ export default function VoiceEditDock({ onApplyVoiceEdit, isApplying }) {
               type="text"
               value={typedText}
               onChange={(e) => setTypedText(e.target.value)}
-              placeholder="Tree two is nine hundred, make the stump optional"
+              placeholder="Hallway is four fifty, or add 3 coats to lounge"
               className="h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[15px]"
             />
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {["Hallway is four fifty", "Lounge is 3 coats", "25 percent deposit"].map((ex) => (
+                <button
+                  key={ex}
+                  type="button"
+                  onClick={() => setTypedText(ex)}
+                  className="rounded-lg bg-secondary px-2.5 py-1 text-[12px] font-medium text-muted-foreground hover:text-foreground"
+                >
+                  {ex}
+                </button>
+              ))}
+            </div>
             <button
               type="submit"
               disabled={isApplying || !typedText.trim()}

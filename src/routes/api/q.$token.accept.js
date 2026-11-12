@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { calculateQuoteTotals } from "@/lib/pricing";
-import { notifyOwnerByEmail } from "@/lib/quote-engine.server";
+import { calculateQuoteTotals, formatMoney } from "@/lib/pricing";
+import { getBusinessSettings, notifyOwnerByEmail } from "@/lib/quote-engine.server";
 
 const BodySchema = z.object({
   acceptedName: z.string().min(2).max(160),
@@ -27,9 +27,10 @@ export const Route = createFileRoute("/api/q/$token/accept")({
         const business = quote.business_id
           ? await svc.entities.Business.get(quote.business_id).catch(() => null)
           : null;
+        const bizSettings = getBusinessSettings(business);
         const itemsPage = await svc.entities.QuoteItem.filter(
           { quote_id: quote.id },
-          { sort: "tree_number", limit: 100 }
+          { sort: "area_number", limit: 100 }
         );
         const items = itemsPage.items || [];
         const validOptionalIds = body.selectedOptionalIds.filter((id) =>
@@ -39,8 +40,9 @@ export const Route = createFileRoute("/api/q/$token/accept")({
         const totals = calculateQuoteTotals({
           items,
           tickedOptionalIds: validOptionalIds,
-          minCharge: business?.min_charge || 0,
-          taxRate: business?.tax_rate || 0,
+          minCharge: bizSettings.min_charge,
+          gstRate: bizSettings.gst_rate,
+          pricesIncludeGst: bizSettings.prices_include_gst,
           depositPct: quote.deposit_pct || 0,
         });
 
@@ -54,9 +56,12 @@ export const Route = createFileRoute("/api/q/$token/accept")({
         await svc.entities.Quote.update(quote.id, {
           status: "accepted",
           selected_optional_ids: validOptionalIds,
-          subtotal: totals.subtotal,
-          tax_amount: totals.taxAmount,
-          total: totals.total,
+          subtotal_excl_gst: totals.subtotalExclGst,
+          gst_amount: totals.gstAmount,
+          total_incl_gst: totals.totalInclGst,
+          subtotal: totals.subtotalExclGst,
+          tax_amount: totals.gstAmount,
+          total: totals.totalInclGst,
           deposit_amount: totals.depositAmount,
           accepted_at: nowIso,
           accepted_name: body.acceptedName.trim(),
@@ -67,17 +72,17 @@ export const Route = createFileRoute("/api/q/$token/accept")({
         await svc.entities.QuoteEvent.create({
           quote_id: quote.id,
           type: "accepted",
-          meta: { accepted_name: body.acceptedName.trim(), total: totals.total },
+          meta: { accepted_name: body.acceptedName.trim(), total: totals.totalInclGst },
         });
 
         await notifyOwnerByEmail({
           base44,
           toEmail: business?.email,
           subject: `Quote accepted by ${body.acceptedName.trim()}`,
-          heading: `${body.acceptedName.trim()} accepted your tree quote`,
+          heading: `${body.acceptedName.trim()} accepted your painting quote`,
           detailLines: [
             `Property: ${quote.address || ""}`,
-            `Accepted total: $${totals.total.toLocaleString("en-US")}`,
+            `Accepted total (incl. GST): ${formatMoney(totals.totalInclGst, bizSettings.currency)}`,
           ],
         });
 
@@ -85,7 +90,7 @@ export const Route = createFileRoute("/api/q/$token/accept")({
           ok: true,
           status: "accepted",
           accepted_at: nowIso,
-          total: totals.total,
+          total: totals.totalInclGst,
         });
       },
     },

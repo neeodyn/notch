@@ -8,7 +8,7 @@
     },
     "name": {
       "type": "string",
-      "description": "Tree service company name"
+      "description": "Painting and decorating company name"
     },
     "phone": {
       "type": "string",
@@ -24,11 +24,27 @@
     },
     "currency": {
       "type": "string",
-      "default": "USD"
+      "default": "NZD"
     },
-    "tax_rate": {
+    "gst_number": {
+      "type": "string",
+      "description": "Optional NZ IRD / GST registration number"
+    },
+    "gst_rate": {
       "type": "number",
-      "default": 0
+      "default": 0.15
+    },
+    "prices_include_gst": {
+      "type": "boolean",
+      "default": false
+    },
+    "default_stud_m": {
+      "type": "number",
+      "default": 2.4
+    },
+    "openings_pct": {
+      "type": "number",
+      "default": 10
     },
     "min_charge": {
       "type": "number",
@@ -40,19 +56,33 @@
     },
     "price_book": {
       "type": "object",
-      "description": "Optional rate matrix by work type, tree size, hazards, haul percentage, and rounding"
+      "description": "Optional NZ painter rate card by surface m2/m, doors, windows, prep, coats, and rounding"
     },
     "plan": {
       "type": "string",
       "enum": [
         "trial",
+        "founding",
         "active"
       ],
       "enumColors": [
         "yellow",
+        "purple",
         "green"
       ],
       "default": "trial"
+    },
+    "billing_interval": {
+      "type": "string",
+      "enum": [
+        "monthly",
+        "yearly"
+      ],
+      "enumColors": [
+        "blue",
+        "green"
+      ],
+      "default": "monthly"
     },
     "trial_started_at": {
       "type": "string",

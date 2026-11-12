@@ -3,8 +3,11 @@ import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth-middleware";
 import {
+  ALL_SURFACES,
+  SURFACE_LABELS,
   calculateQuoteTotals,
-  expandTreesToQuoteItems,
+  expandAreasToQuoteItems,
+  formatMoney,
   matchPhotosToItems,
   priceSingleItem,
 } from "@/lib/pricing";
@@ -13,6 +16,7 @@ import {
   createFollowUpSmsText,
   extractQuoteStructureWithRetry,
   generatePublicToken,
+  getBusinessSettings,
   getTrialDaysLeft,
   isTrialExpired,
   notifyOwnerByEmail,
@@ -20,7 +24,11 @@ import {
   signFileUriIfNeeded,
   transcribeAudioOnServer,
 } from "@/lib/quote-engine.server";
-import { SAMPLE_BUSINESS, SAMPLE_QUOTE, SAMPLE_QUOTE_TOKEN } from "@/components/sample/sampleQuoteData";
+import {
+  SAMPLE_BUSINESS,
+  SAMPLE_QUOTE,
+  SAMPLE_QUOTE_TOKEN,
+} from "@/components/sample/sampleQuoteData";
 
 async function getOrInitBusiness(base44, user) {
   const byOwner = await base44.entities.Business.filter(
@@ -30,11 +38,26 @@ async function getOrInitBusiness(base44, user) {
   if (byOwner.items?.length > 0) {
     return byOwner.items[0];
   }
-  const recent = await base44.entities.Business.filter({}, { sort: "-created_date", limit: 25 });
+  const recent = await base44.entities.Business.filter(
+    {},
+    { sort: "-created_date", limit: 25 }
+  );
   const matched = (recent.items || []).find(
     (b) => b.created_by_id === user.id || b.owner_id === user.id
   );
   return matched || null;
+}
+
+function serializeQuoteTotals(totals) {
+  return {
+    subtotal_excl_gst: totals.subtotalExclGst,
+    gst_amount: totals.gstAmount,
+    total_incl_gst: totals.totalInclGst,
+    subtotal: totals.subtotalExclGst,
+    tax_amount: totals.gstAmount,
+    total: totals.totalInclGst,
+    deposit_amount: totals.depositAmount,
+  };
 }
 
 export const getAppBootstrap = createServerFn({ method: "GET" })
@@ -43,12 +66,22 @@ export const getAppBootstrap = createServerFn({ method: "GET" })
     const base44 = context.getBase44();
     const business = await getOrInitBusiness(base44, context.user);
     const quotesPage = business
-      ? await base44.entities.Quote.filter({ business_id: business.id }, { sort: "-created_date", limit: 100 })
-      : await base44.entities.Quote.filter({}, { sort: "-created_date", limit: 100 });
+      ? await base44.entities.Quote.filter(
+          { business_id: business.id },
+          { sort: "-created_date", limit: 100 }
+        )
+      : await base44.entities.Quote.filter(
+          {},
+          { sort: "-created_date", limit: 100 }
+        );
     const quotes = (quotesPage.items || []).filter(
-      (q) => q.created_by_id === context.user.id || (business && q.business_id === business.id)
+      (q) =>
+        q.created_by_id === context.user.id ||
+        (business && q.business_id === business.id)
     );
-    const logoUrl = business?.logo_uri ? await signFileUriIfNeeded(base44, business.logo_uri) : null;
+    const logoUrl = business?.logo_uri
+      ? await signFileUriIfNeeded(base44, business.logo_uri)
+      : null;
 
     return {
       user: {
@@ -59,6 +92,11 @@ export const getAppBootstrap = createServerFn({ method: "GET" })
       business: business
         ? {
             ...business,
+            currency: business.currency || "NZD",
+            gst_rate: business.gst_rate ?? 0.15,
+            prices_include_gst: Boolean(business.prices_include_gst),
+            default_stud_m: business.default_stud_m ?? 2.4,
+            openings_pct: business.openings_pct ?? 10,
             logo_url: logoUrl,
             trial_expired: isTrialExpired(business),
             trial_days_left: getTrialDaysLeft(business),
@@ -73,10 +111,15 @@ const SaveBusinessSchema = z.object({
   phone: z.string().max(50).optional().default(""),
   email: z.string().max(140).optional().default(""),
   logo_uri: z.string().max(500).optional().nullable(),
-  currency: z.string().max(8).optional().default("USD"),
-  tax_rate: z.number().min(0).max(50).optional().default(0),
+  currency: z.string().max(8).optional().default("NZD"),
+  gst_number: z.string().max(40).optional().default(""),
+  gst_rate: z.number().min(0).max(1).optional().default(0.15),
+  prices_include_gst: z.boolean().optional().default(false),
+  default_stud_m: z.number().min(1.5).max(8).optional().default(2.4),
+  openings_pct: z.number().min(0).max(60).optional().default(10),
   min_charge: z.number().min(0).max(100000).optional().default(0),
   terms: z.string().max(4000).optional().default(""),
+  billing_interval: z.enum(["monthly", "yearly"]).optional(),
   price_book: z.record(z.string(), z.any()).nullable().optional(),
 });
 
@@ -87,26 +130,32 @@ export const saveBusinessProfile = createServerFn({ method: "POST" })
     const base44 = context.getBase44();
     const existing = await getOrInitBusiness(base44, context.user);
     const payload = {
+      owner_id: context.user.id,
       name: data.name.trim(),
       phone: data.phone || "",
       email: data.email || context.user.email || "",
       logo_uri: data.logo_uri ?? existing?.logo_uri ?? "",
-      currency: data.currency || "USD",
-      tax_rate: Number(data.tax_rate) || 0,
+      currency: data.currency || "NZD",
+      gst_number: data.gst_number?.trim() || "",
+      gst_rate: Number.isFinite(Number(data.gst_rate)) ? Number(data.gst_rate) : 0.15,
+      prices_include_gst: Boolean(data.prices_include_gst),
+      default_stud_m: Number(data.default_stud_m) || 2.4,
+      openings_pct:
+        data.openings_pct != null && Number.isFinite(Number(data.openings_pct))
+          ? Number(data.openings_pct)
+          : 10,
       min_charge: Number(data.min_charge) || 0,
       terms: data.terms || "",
-      price_book: data.price_book === undefined ? existing?.price_book ?? null : data.price_book,
+      billing_interval: data.billing_interval || existing?.billing_interval || "monthly",
+      price_book:
+        data.price_book === undefined ? existing?.price_book ?? null : data.price_book,
     };
 
     if (existing) {
-      return await base44.entities.Business.update(existing.id, {
-        ...payload,
-        owner_id: context.user.id,
-      });
+      return await base44.entities.Business.update(existing.id, payload);
     }
     return await base44.entities.Business.create({
       ...payload,
-      owner_id: context.user.id,
       plan: "trial",
     });
   });
@@ -118,19 +167,25 @@ export const createDraftQuote = createServerFn({ method: "POST" })
     let business = await getOrInitBusiness(base44, context.user);
     if (!business) {
       const fallbackName = context.user.full_name
-        ? `${context.user.full_name.split(" ")[0]}'s Tree Service`
-        : "My Tree Service";
+        ? `${context.user.full_name.split(" ")[0]} Painters`
+        : "My Painting & Decorating";
       business = await base44.entities.Business.create({
         owner_id: context.user.id,
         name: fallbackName,
         phone: "",
         email: context.user.email || "",
-        currency: "USD",
-        tax_rate: 0,
+        currency: "NZD",
+        gst_number: "",
+        gst_rate: 0.15,
+        prices_include_gst: false,
+        default_stud_m: 2.4,
+        openings_pct: 10,
         min_charge: 0,
-        terms: "Payment due upon completion. Please clear vehicles from driveway prior to crew arrival.",
+        terms:
+          "Quote valid for 30 days. Standard preparation includes sugar soap wash, filling minor imperfections, sanding, and premium Resene or Dulux finishes. Final colour selection to be confirmed prior to commencement.",
         price_book: null,
         plan: "trial",
+        billing_interval: "monthly",
       });
     }
 
@@ -145,6 +200,9 @@ export const createDraftQuote = createServerFn({ method: "POST" })
       notes: "",
       unclear: [],
       public_token: generatePublicToken(),
+      subtotal_excl_gst: 0,
+      gst_amount: 0,
+      total_incl_gst: 0,
       subtotal: 0,
       tax_amount: 0,
       total: 0,
@@ -176,14 +234,22 @@ export const getQuoteWorkspace = createServerFn({ method: "GET" })
 
     const business = await getOrInitBusiness(base44, context.user);
     const [itemsPage, photosPage, versionsPage] = await Promise.all([
-      base44.entities.QuoteItem.filter({ quote_id: quote.id }, { sort: "tree_number", limit: 100 }),
-      base44.entities.Photo.filter({ quote_id: quote.id }, { sort: "taken_at_s", limit: 100 }),
-      base44.entities.QuoteVersion.filter({ quote_id: quote.id }, { sort: "-created_date", limit: 5 }),
+      base44.entities.QuoteItem.filter(
+        { quote_id: quote.id },
+        { sort: "area_number", limit: 100 }
+      ),
+      base44.entities.Photo.filter(
+        { quote_id: quote.id },
+        { sort: "taken_at_s", limit: 100 }
+      ),
+      base44.entities.QuoteVersion.filter(
+        { quote_id: quote.id },
+        { sort: "-created_date", limit: 5 }
+      ),
     ]);
 
-    const rawPhotos = photosPage.items || [];
     const signedPhotos = await Promise.all(
-      rawPhotos.map(async (p) => ({
+      (photosPage.items || []).map(async (p) => ({
         ...p,
         url: await signFileUriIfNeeded(base44, p.file_uri),
       }))
@@ -198,6 +264,11 @@ export const getQuoteWorkspace = createServerFn({ method: "GET" })
       business: business
         ? {
             ...business,
+            currency: business.currency || "NZD",
+            gst_rate: business.gst_rate ?? 0.15,
+            prices_include_gst: Boolean(business.prices_include_gst),
+            default_stud_m: business.default_stud_m ?? 2.4,
+            openings_pct: business.openings_pct ?? 10,
             trial_expired: isTrialExpired(business),
             trial_days_left: getTrialDaysLeft(business),
           }
@@ -266,6 +337,7 @@ export const fillQuoteFromCaptureFn = createServerFn({ method: "POST" })
     const base44 = context.getBase44();
     const quote = await base44.entities.Quote.get(data.quoteId);
     const business = await getOrInitBusiness(base44, context.user);
+    const bizSettings = getBusinessSettings(business);
     const priceBook = business?.price_book || null;
 
     const extracted = await extractQuoteStructureWithRetry({
@@ -273,13 +345,17 @@ export const fillQuoteFromCaptureFn = createServerFn({ method: "POST" })
       userId: context.user.id,
       segments: data.segments,
       photoTimes: data.photos.map((p) => p.taken_at_s),
+      defaultStudM: bizSettings.default_stud_m,
     });
 
-    // Clear any prior draft items/photos on re-capture
     await base44.entities.QuoteItem.deleteMany({ quote_id: quote.id });
     await base44.entities.Photo.deleteMany({ quote_id: quote.id });
 
-    const itemDrafts = expandTreesToQuoteItems(extracted.trees || [], priceBook);
+    const itemDrafts = expandAreasToQuoteItems(
+      extracted.areas || [],
+      priceBook,
+      bizSettings
+    );
     const createdItems = [];
     for (const draft of itemDrafts) {
       const created = await base44.entities.QuoteItem.create({
@@ -289,27 +365,36 @@ export const fillQuoteFromCaptureFn = createServerFn({ method: "POST" })
       createdItems.push(created);
     }
 
-    const matchedPhotoDrafts = matchPhotosToItems(data.photos, createdItems, data.segments);
+    const matchedPhotoDrafts = matchPhotosToItems(
+      data.photos,
+      createdItems,
+      data.segments
+    );
     const createdPhotos = [];
     for (const p of matchedPhotoDrafts) {
       const savedPhoto = await base44.entities.Photo.create({
         quote_id: quote.id,
         item_id: p.item_id || "",
-        tree_number: p.tree_number || 1,
+        area_number: p.area_number || 1,
         file_uri: p.file_uri,
         taken_at_s: p.taken_at_s,
-        pin_x: 0.5,
-        pin_y: 0.38,
+        pin_x: null,
+        pin_y: null,
       });
       createdPhotos.push(savedPhoto);
     }
 
-    const depositPct = extracted.deposit_pct != null ? Number(extracted.deposit_pct) : quote.deposit_pct || 0;
+    const depositPct =
+      extracted.deposit_pct != null
+        ? Number(extracted.deposit_pct)
+        : quote.deposit_pct || 0;
+
     const totals = calculateQuoteTotals({
       items: createdItems,
       tickedOptionalIds: [],
-      minCharge: business?.min_charge || 0,
-      taxRate: business?.tax_rate || 0,
+      minCharge: bizSettings.min_charge,
+      gstRate: bizSettings.gst_rate,
+      pricesIncludeGst: bizSettings.prices_include_gst,
       depositPct,
     });
 
@@ -321,21 +406,23 @@ export const fillQuoteFromCaptureFn = createServerFn({ method: "POST" })
       deposit_pct: depositPct,
       notes: extracted.notes || quote.notes || "",
       unclear: extracted.unclear || [],
-      subtotal: totals.subtotal,
-      tax_amount: totals.taxAmount,
-      total: totals.total,
-      deposit_amount: totals.depositAmount,
+      ...serializeQuoteTotals(totals),
     });
 
     if (data.recordingId) {
-      await base44.entities.Recording.update(data.recordingId, { status: "processed" });
+      await base44.entities.Recording.update(data.recordingId, {
+        status: "processed",
+      });
     }
 
     await saveVersionSnapshot(base44, quote.id, "initial_capture");
     await base44.entities.QuoteEvent.create({
       quote_id: quote.id,
       type: "captured",
-      meta: { treeCount: createdItems.filter((i) => !i.is_stump_line).length, photoCount: createdPhotos.length },
+      meta: {
+        areaCount: createdItems.filter((i) => !i.is_optional_split).length,
+        photoCount: createdPhotos.length,
+      },
     });
 
     return { quoteId: updatedQuote.id };
@@ -361,24 +448,26 @@ export const updateQuoteDetailsFn = createServerFn({ method: "POST" })
     const base44 = context.getBase44();
     const quote = await base44.entities.Quote.get(data.quoteId);
     const business = await getOrInitBusiness(base44, context.user);
+    const bizSettings = getBusinessSettings(business);
     await saveVersionSnapshot(base44, quote.id, "manual_edit");
 
-    const itemsPage = await base44.entities.QuoteItem.filter({ quote_id: quote.id }, { sort: "tree_number", limit: 100 });
+    const itemsPage = await base44.entities.QuoteItem.filter(
+      { quote_id: quote.id },
+      { sort: "area_number", limit: 100 }
+    );
     const depositPct = data.patch.deposit_pct ?? quote.deposit_pct ?? 0;
     const totals = calculateQuoteTotals({
       items: itemsPage.items || [],
       tickedOptionalIds: quote.selected_optional_ids || [],
-      minCharge: business?.min_charge || 0,
-      taxRate: business?.tax_rate || 0,
+      minCharge: bizSettings.min_charge,
+      gstRate: bizSettings.gst_rate,
+      pricesIncludeGst: bizSettings.prices_include_gst,
       depositPct,
     });
 
     return await base44.entities.Quote.update(quote.id, {
       ...data.patch,
-      subtotal: totals.subtotal,
-      tax_amount: totals.taxAmount,
-      total: totals.total,
-      deposit_amount: totals.depositAmount,
+      ...serializeQuoteTotals(totals),
     });
   });
 
@@ -386,14 +475,19 @@ const UpdateQuoteItemSchema = z.object({
   quoteId: z.string().min(1).max(120),
   itemId: z.string().min(1).max(120),
   patch: z.object({
-    label: z.string().max(160).optional(),
-    species: z.string().max(120).optional(),
-    height_ft: z.number().nullable().optional(),
-    size_class: z.enum(["small", "medium", "large", "xl"]).optional(),
-    work: z.enum(["remove", "trim", "crown_reduce", "deadwood", "stump_grind"]).optional(),
-    hazards: z.array(z.string()).optional(),
-    stump: z.enum(["grind", "optional", "leave"]).optional(),
-    haul: z.boolean().optional(),
+    name: z.string().max(160).optional(),
+    kind: z.enum(["interior", "exterior", "extra"]).optional(),
+    length_m: z.number().nullable().optional(),
+    width_m: z.number().nullable().optional(),
+    stud_m: z.number().nullable().optional(),
+    area_m2_spoken: z.number().nullable().optional(),
+    surfaces: z.array(z.string()).optional(),
+    doors: z.number().int().min(0).max(50).optional(),
+    windows: z.number().int().min(0).max(50).optional(),
+    coats: z.number().int().min(1).max(5).optional(),
+    prep: z.enum(["light", "standard", "heavy"]).optional(),
+    prep_notes: z.string().max(500).optional(),
+    colour: z.string().max(120).optional(),
     optional: z.boolean().optional(),
     price: z.number().nullable().optional(),
     price_source: z.enum(["spoken", "price_book", "owner", "none"]).optional(),
@@ -408,61 +502,44 @@ export const updateQuoteItemFn = createServerFn({ method: "POST" })
     const base44 = context.getBase44();
     const quote = await base44.entities.Quote.get(data.quoteId);
     const business = await getOrInitBusiness(base44, context.user);
+    const bizSettings = getBusinessSettings(business);
     await saveVersionSnapshot(base44, quote.id, "manual_item_edit");
 
     const current = await base44.entities.QuoteItem.get(data.itemId);
     const merged = { ...current, ...data.patch };
 
-    if (data.patch.price !== undefined && data.patch.price !== null) {
-      merged.price_source = "owner";
-      merged.flagged = false;
-    }
-
-    // Handle toggling stump === 'optional' via tap
-    if (data.patch.stump === "optional" && !current.is_stump_line) {
-      merged.stump = "leave";
-      const allItemsPage = await base44.entities.QuoteItem.filter(
-        { quote_id: quote.id },
-        { sort: "tree_number", limit: 100 }
-      );
-      const hasStumpLine = (allItemsPage.items || []).some(
-        (it) => it.tree_number === current.tree_number && it.is_stump_line
-      );
-      if (!hasStumpLine) {
-        const stumpDraft = priceSingleItem(
-          {
-            quote_id: quote.id,
-            tree_number: current.tree_number,
-            label: `${merged.label || `Tree ${current.tree_number}`} — Stump grinding`,
-            species: merged.species || "",
-            height_ft: merged.height_ft,
-            size_class: merged.size_class,
-            work: "stump_grind",
-            hazards: [],
-            stump: "grind",
-            haul: false,
-            optional: true,
-            is_stump_line: true,
-            spoken_price: null,
-            customer_description: `Grind the ${merged.species || `Tree ${current.tree_number}`} stump below grade and level wood chips.`,
-          },
-          business?.price_book || null
-        );
-        await base44.entities.QuoteItem.create(stumpDraft);
+    if (data.patch.price !== undefined) {
+      if (data.patch.price === null) {
+        merged.spoken_price = null;
+        merged.price_source = "none";
+      } else {
+        merged.price_source = "owner";
+        merged.flagged = false;
       }
     }
 
-    const repriced = priceSingleItem(merged, business?.price_book || null);
+    const repriced = priceSingleItem(
+      merged,
+      business?.price_book || null,
+      bizSettings
+    );
+
     await base44.entities.QuoteItem.update(current.id, {
-      label: repriced.label,
-      species: repriced.species,
-      height_ft: repriced.height_ft,
-      size_class: repriced.size_class,
-      work: repriced.work,
-      hazards: repriced.hazards,
-      stump: repriced.stump,
-      haul: repriced.haul,
-      optional: repriced.optional,
+      name: repriced.name,
+      kind: repriced.kind,
+      length_m: repriced.length_m,
+      width_m: repriced.width_m,
+      stud_m: repriced.stud_m,
+      area_m2_spoken: repriced.area_m2_spoken,
+      surfaces: repriced.surfaces,
+      doors: repriced.doors,
+      windows: repriced.windows,
+      coats: repriced.coats,
+      prep: repriced.prep,
+      prep_notes: repriced.prep_notes,
+      colour: repriced.colour,
+      optional: Boolean(repriced.optional),
+      spoken_price: repriced.spoken_price,
       price: repriced.price,
       price_book_estimate: repriced.price_book_estimate,
       price_source: repriced.price_source,
@@ -472,111 +549,146 @@ export const updateQuoteItemFn = createServerFn({ method: "POST" })
 
     const refreshedItems = await base44.entities.QuoteItem.filter(
       { quote_id: quote.id },
-      { sort: "tree_number", limit: 100 }
+      { sort: "area_number", limit: 100 }
     );
     const totals = calculateQuoteTotals({
       items: refreshedItems.items || [],
       tickedOptionalIds: quote.selected_optional_ids || [],
-      minCharge: business?.min_charge || 0,
-      taxRate: business?.tax_rate || 0,
+      minCharge: bizSettings.min_charge,
+      gstRate: bizSettings.gst_rate,
+      pricesIncludeGst: bizSettings.prices_include_gst,
       depositPct: quote.deposit_pct || 0,
     });
 
-    await base44.entities.Quote.update(quote.id, {
-      subtotal: totals.subtotal,
-      tax_amount: totals.taxAmount,
-      total: totals.total,
-      deposit_amount: totals.depositAmount,
-    });
-
+    await base44.entities.Quote.update(quote.id, serializeQuoteTotals(totals));
     return { ok: true };
   });
 
-const AddOrDeleteTreeSchema = z.object({
+const AddOrDeleteAreaSchema = z.object({
   quoteId: z.string().min(1).max(120),
   itemId: z.string().max(120).optional(),
-  action: z.enum(["add", "delete"]),
+  action: z.enum(["add", "delete", "split_optional_ceiling"]),
   photoFileUri: z.string().max(500).optional(),
 });
 
 export const addOrDeleteQuoteItemFn = createServerFn({ method: "POST" })
   .middleware([requireUser])
-  .inputValidator((input) => AddOrDeleteTreeSchema.parse(input))
+  .inputValidator((input) => AddOrDeleteAreaSchema.parse(input))
   .handler(async ({ data, context }) => {
     const base44 = context.getBase44();
     const quote = await base44.entities.Quote.get(data.quoteId);
     const business = await getOrInitBusiness(base44, context.user);
-    await saveVersionSnapshot(base44, quote.id, "tree_list_change");
+    const bizSettings = getBusinessSettings(business);
+    await saveVersionSnapshot(base44, quote.id, "area_list_change");
 
     const existingPage = await base44.entities.QuoteItem.filter(
       { quote_id: quote.id },
-      { sort: "tree_number", limit: 100 }
+      { sort: "area_number", limit: 100 }
     );
     const existing = existingPage.items || [];
 
     if (data.action === "delete" && data.itemId) {
       await base44.entities.QuoteItem.delete(data.itemId);
+    } else if (data.action === "split_optional_ceiling" && data.itemId) {
+      const target = await base44.entities.QuoteItem.get(data.itemId);
+      const nextSurfs = (target.surfaces || []).filter((s) => s !== "ceiling");
+      const repricedMain = priceSingleItem(
+        { ...target, surfaces: nextSurfs.length ? nextSurfs : ["walls"] },
+        business?.price_book || null,
+        bizSettings
+      );
+      await base44.entities.QuoteItem.update(target.id, {
+        surfaces: repricedMain.surfaces,
+        price: repricedMain.price,
+        price_book_estimate: repricedMain.price_book_estimate,
+        price_source: repricedMain.price_source,
+      });
+
+      const optCeiling = priceSingleItem(
+        {
+          quote_id: quote.id,
+          area_number: target.area_number,
+          name: `${target.name} — ${SURFACE_LABELS.ceiling}`,
+          kind: target.kind || "interior",
+          length_m: target.length_m,
+          width_m: target.width_m,
+          stud_m: target.stud_m,
+          surfaces: ["ceiling"],
+          doors: 0,
+          windows: 0,
+          coats: target.coats || 2,
+          prep: target.prep || "standard",
+          colour: target.colour || "",
+          spoken_price: null,
+          optional: true,
+          is_optional_split: true,
+          customer_description: `Prepare and apply ${target.coats || 2} coats to ${(target.name || "room").toLowerCase()} ceiling.`,
+        },
+        business?.price_book || null,
+        bizSettings
+      );
+      await base44.entities.QuoteItem.create(optCeiling);
     } else if (data.action === "add") {
-      const nextNum = existing.reduce((max, it) => Math.max(max, Number(it.tree_number) || 0), 0) + 1;
+      const nextNum =
+        existing.reduce((max, it) => Math.max(max, Number(it.area_number) || 0), 0) + 1;
       const draft = priceSingleItem(
         {
           quote_id: quote.id,
-          tree_number: nextNum,
-          label: `Tree ${nextNum}`,
-          species: "",
-          height_ft: 40,
-          size_class: "medium",
-          work: "trim",
-          hazards: [],
-          stump: "leave",
-          haul: true,
-          optional: false,
-          is_stump_line: false,
+          area_number: nextNum,
+          name: `Room ${nextNum}`,
+          kind: "interior",
+          length_m: 4,
+          width_m: 3.5,
+          stud_m: bizSettings.default_stud_m,
+          surfaces: ["walls", "ceiling"],
+          doors: 1,
+          windows: 1,
+          coats: 2,
+          prep: "standard",
+          colour: "",
           spoken_price: null,
-          customer_description: `Pruning and cleanup on Tree ${nextNum}, including brush haul-away.`,
+          optional: false,
+          is_optional_split: false,
+          customer_description: `Prepare and apply 2 coats to room ${nextNum} walls and ceiling.`,
         },
-        business?.price_book || null
+        business?.price_book || null,
+        bizSettings
       );
       const created = await base44.entities.QuoteItem.create(draft);
       if (data.photoFileUri) {
         await base44.entities.Photo.create({
           quote_id: quote.id,
           item_id: created.id,
-          tree_number: nextNum,
+          area_number: nextNum,
           file_uri: data.photoFileUri,
           taken_at_s: 0,
-          pin_x: 0.5,
-          pin_y: 0.4,
+          pin_x: null,
+          pin_y: null,
         });
       }
     }
 
     const afterPage = await base44.entities.QuoteItem.filter(
       { quote_id: quote.id },
-      { sort: "tree_number", limit: 100 }
+      { sort: "area_number", limit: 100 }
     );
     const totals = calculateQuoteTotals({
       items: afterPage.items || [],
       tickedOptionalIds: quote.selected_optional_ids || [],
-      minCharge: business?.min_charge || 0,
-      taxRate: business?.tax_rate || 0,
+      minCharge: bizSettings.min_charge,
+      gstRate: bizSettings.gst_rate,
+      pricesIncludeGst: bizSettings.prices_include_gst,
       depositPct: quote.deposit_pct || 0,
     });
 
-    await base44.entities.Quote.update(quote.id, {
-      subtotal: totals.subtotal,
-      tax_amount: totals.taxAmount,
-      total: totals.total,
-      deposit_amount: totals.depositAmount,
-    });
-
+    await base44.entities.Quote.update(quote.id, serializeQuoteTotals(totals));
     return { ok: true };
   });
 
 const UpdatePhotoPinSchema = z.object({
   photoId: z.string().min(1).max(120),
-  pin_x: z.number().min(0).max(1),
-  pin_y: z.number().min(0).max(1),
+  pin_x: z.number().min(0).max(1).nullable(),
+  pin_y: z.number().min(0).max(1).nullable(),
 });
 
 export const updatePhotoPinFn = createServerFn({ method: "POST" })
@@ -593,7 +705,7 @@ export const updatePhotoPinFn = createServerFn({ method: "POST" })
 const AttachPhotoSchema = z.object({
   quoteId: z.string().min(1).max(120),
   itemId: z.string().max(120).optional().default(""),
-  treeNumber: z.number().int().min(1),
+  areaNumber: z.number().int().min(1),
   fileUri: z.string().min(1).max(500),
 });
 
@@ -605,13 +717,15 @@ export const attachTreePhotoFn = createServerFn({ method: "POST" })
     return await base44.entities.Photo.create({
       quote_id: data.quoteId,
       item_id: data.itemId || "",
-      tree_number: data.treeNumber,
+      area_number: data.areaNumber,
       file_uri: data.fileUri,
       taken_at_s: 0,
-      pin_x: 0.5,
-      pin_y: 0.4,
+      pin_x: null,
+      pin_y: null,
     });
   });
+
+export const attachAreaPhotoFn = attachTreePhotoFn;
 
 const VoiceEditSchema = z.object({
   quoteId: z.string().min(1).max(120),
@@ -629,7 +743,7 @@ export const voiceEditQuoteFn = createServerFn({ method: "POST" })
     const business = await getOrInitBusiness(base44, context.user);
     const itemsPage = await base44.entities.QuoteItem.filter(
       { quote_id: quote.id },
-      { sort: "tree_number", limit: 100 }
+      { sort: "area_number", limit: 100 }
     );
 
     const { transcript } = await transcribeAudioOnServer({
@@ -643,7 +757,7 @@ export const voiceEditQuoteFn = createServerFn({ method: "POST" })
     });
 
     if (!transcript) {
-      throw new Error("Didn't catch any speech. Hold or tap the mic and speak your change.");
+      throw new Error("Didn't catch any speech. Tap the mic and speak your change.");
     }
 
     const res = await applyVoiceEditWithRetry({
@@ -678,7 +792,9 @@ export const undoQuoteChangeFn = createServerFn({ method: "POST" })
       { sort: "-created_date", limit: 5 }
     );
     const versions = versionsPage.items || [];
-    const target = data.versionId ? versions.find((v) => v.id === data.versionId) || versions[0] : versions[0];
+    const target = data.versionId
+      ? versions.find((v) => v.id === data.versionId) || versions[0]
+      : versions[0];
     if (!target?.snapshot) {
       throw new Error("Nothing left to undo.");
     }
@@ -757,11 +873,11 @@ export const generateFollowUpFn = createServerFn({ method: "POST" })
     const smsBody = await createFollowUpSmsText({
       base44,
       userId: context.user.id,
-      businessName: business?.name || "Our tree crew",
+      businessName: business?.name || "Our painting team",
       clientName: quote.client_name,
       address: quote.address,
-      total: quote.total,
-      currency: business?.currency || "USD",
+      total: quote.total_incl_gst || quote.total,
+      currency: business?.currency || "NZD",
     });
 
     await base44.entities.QuoteEvent.create({
@@ -795,7 +911,10 @@ export const getPublicQuoteByTokenFn = createServerFn({ method: "GET" })
     const base44 = context.getBase44();
     const svc = base44.asServiceRole;
 
-    const foundPage = await svc.entities.Quote.filter({ public_token: data.token }, { limit: 1 });
+    const foundPage = await svc.entities.Quote.filter(
+      { public_token: data.token },
+      { limit: 1 }
+    );
     const quote = foundPage.items?.[0];
     if (!quote) return null;
 
@@ -812,19 +931,27 @@ export const getPublicQuoteByTokenFn = createServerFn({ method: "GET" })
       : null;
 
     const [itemsPage, photosPage] = await Promise.all([
-      svc.entities.QuoteItem.filter({ quote_id: quote.id }, { sort: "tree_number", limit: 100 }),
-      svc.entities.Photo.filter({ quote_id: quote.id }, { sort: "taken_at_s", limit: 100 }),
+      svc.entities.QuoteItem.filter(
+        { quote_id: quote.id },
+        { sort: "area_number", limit: 100 }
+      ),
+      svc.entities.Photo.filter(
+        { quote_id: quote.id },
+        { sort: "taken_at_s", limit: 100 }
+      ),
     ]);
 
-    const logoUrl = business?.logo_uri ? await signFileUriIfNeeded(base44, business.logo_uri) : null;
+    const logoUrl = business?.logo_uri
+      ? await signFileUriIfNeeded(base44, business.logo_uri)
+      : null;
     const signedPhotos = await Promise.all(
       (photosPage.items || []).map(async (p) => ({
         id: p.id,
         item_id: p.item_id,
-        tree_number: p.tree_number,
+        area_number: p.area_number,
         taken_at_s: p.taken_at_s,
-        pin_x: p.pin_x ?? 0.5,
-        pin_y: p.pin_y ?? 0.4,
+        pin_x: p.pin_x ?? null,
+        pin_y: p.pin_y ?? null,
         url: await signFileUriIfNeeded(base44, p.file_uri),
       }))
     );
@@ -838,18 +965,26 @@ export const getPublicQuoteByTokenFn = createServerFn({ method: "GET" })
             phone: business.phone || "",
             email: business.email || "",
             logo_url: logoUrl,
-            currency: business.currency || "USD",
-            tax_rate: business.tax_rate || 0,
+            currency: business.currency || "NZD",
+            gst_number: business.gst_number || "",
+            gst_rate: business.gst_rate ?? 0.15,
+            prices_include_gst: Boolean(business.prices_include_gst),
+            default_stud_m: business.default_stud_m ?? 2.4,
+            openings_pct: business.openings_pct ?? 10,
             min_charge: business.min_charge || 0,
             terms: business.terms || "",
           }
         : {
-            name: "Tree Service Proposal",
+            name: "Painting & Decorating Proposal",
             phone: "",
             email: "",
             logo_url: null,
-            currency: "USD",
-            tax_rate: 0,
+            currency: "NZD",
+            gst_number: "",
+            gst_rate: 0.15,
+            prices_include_gst: false,
+            default_stud_m: 2.4,
+            openings_pct: 10,
             min_charge: 0,
             terms: "",
           },
@@ -862,22 +997,31 @@ export const getPublicQuoteByTokenFn = createServerFn({ method: "GET" })
         deposit_pct: quote.deposit_pct || 0,
         notes: quote.notes || "",
         selected_optional_ids: quote.selected_optional_ids || [],
-        total: quote.total || 0,
+        subtotal_excl_gst: quote.subtotal_excl_gst || quote.subtotal || 0,
+        gst_amount: quote.gst_amount || quote.tax_amount || 0,
+        total_incl_gst: quote.total_incl_gst || quote.total || 0,
+        total: quote.total_incl_gst || quote.total || 0,
         accepted_at: quote.accepted_at || null,
         accepted_name: quote.accepted_name || null,
         created_date: quote.created_date,
       },
       items: (itemsPage.items || []).map((it) => ({
         id: it.id,
-        tree_number: it.tree_number,
-        label: it.label,
-        species: it.species,
-        height_ft: it.height_ft,
-        work: it.work,
-        stump: it.stump,
-        haul: it.haul,
+        area_number: it.area_number,
+        name: it.name,
+        kind: it.kind || "interior",
+        length_m: it.length_m,
+        width_m: it.width_m,
+        stud_m: it.stud_m,
+        area_m2_spoken: it.area_m2_spoken,
+        surfaces: it.surfaces || [],
+        doors: it.doors || 0,
+        windows: it.windows || 0,
+        coats: it.coats || 2,
+        prep: it.prep || "standard",
+        colour: it.colour || "",
         optional: Boolean(it.optional),
-        is_stump_line: Boolean(it.is_stump_line),
+        is_optional_split: Boolean(it.is_optional_split),
         price: it.price,
         price_source: it.price_source,
         customer_description: it.customer_description,
@@ -893,7 +1037,10 @@ export const recordPublicQuoteViewFn = createServerFn({ method: "POST" })
 
     const base44 = context.getBase44();
     const svc = base44.asServiceRole;
-    const foundPage = await svc.entities.Quote.filter({ public_token: data.token }, { limit: 1 });
+    const foundPage = await svc.entities.Quote.filter(
+      { public_token: data.token },
+      { limit: 1 }
+    );
     const quote = foundPage.items?.[0];
     if (!quote) return { recorded: false };
 
@@ -911,7 +1058,10 @@ export const recordPublicQuoteViewFn = createServerFn({ method: "POST" })
 
     if (!quote.viewed_at) {
       const nowIso = new Date().toISOString();
-      const nextStatus = quote.status === "sent" || quote.status === "draft" ? "viewed" : quote.status;
+      const nextStatus =
+        quote.status === "sent" || quote.status === "draft"
+          ? "viewed"
+          : quote.status;
       await svc.entities.Quote.update(quote.id, {
         viewed_at: nowIso,
         status: nextStatus,
@@ -928,11 +1078,11 @@ export const recordPublicQuoteViewFn = createServerFn({ method: "POST" })
       await notifyOwnerByEmail({
         base44,
         toEmail: business?.email,
-        subject: `${quote.client_name || "Homeowner"} opened your quote`,
-        heading: `${quote.client_name || "Your client"} just viewed their tree quote`,
+        subject: `${quote.client_name || "Homeowner"} opened your painting quote`,
+        heading: `${quote.client_name || "Your client"} just viewed their quote`,
         detailLines: [
           `Property: ${quote.address || "Address not listed"}`,
-          `Quote total: $${Number(quote.total || 0).toLocaleString("en-US")}`,
+          `Quote total (incl. GST): ${formatMoney(quote.total_incl_gst || quote.total || 0, business?.currency || "NZD")}`,
         ],
       });
       return { recorded: true };
@@ -958,7 +1108,7 @@ export const respondToPublicQuoteFn = createServerFn({ method: "POST" })
         isSample: true,
         status: data.action === "decline" ? "declined" : "accepted",
         accepted_at: new Date().toISOString(),
-        accepted_name: data.acceptedName || "Claire Whitaker",
+        accepted_name: data.acceptedName || "Sarah Miller",
       };
     }
 
@@ -971,13 +1121,17 @@ export const respondToPublicQuoteFn = createServerFn({ method: "POST" })
       "unknown";
     const userAgent = req?.headers?.get("user-agent") || "unknown";
 
-    const foundPage = await svc.entities.Quote.filter({ public_token: data.token }, { limit: 1 });
+    const foundPage = await svc.entities.Quote.filter(
+      { public_token: data.token },
+      { limit: 1 }
+    );
     const quote = foundPage.items?.[0];
     if (!quote) throw new Error("Quote not found.");
 
     const business = quote.business_id
       ? await svc.entities.Business.get(quote.business_id).catch(() => null)
       : null;
+    const bizSettings = getBusinessSettings(business);
 
     if (data.action === "decline") {
       const nowIso = new Date().toISOString();
@@ -995,12 +1149,14 @@ export const respondToPublicQuoteFn = createServerFn({ method: "POST" })
 
     const cleanName = String(data.acceptedName || "").trim();
     if (cleanName.length < 2 || !data.agreed) {
-      throw new Error("Please type your full name and check the agreement box to accept.");
+      throw new Error(
+        "Please type your full name and tick the agreement box to accept."
+      );
     }
 
     const itemsPage = await svc.entities.QuoteItem.filter(
       { quote_id: quote.id },
-      { sort: "tree_number", limit: 100 }
+      { sort: "area_number", limit: 100 }
     );
     const items = itemsPage.items || [];
     const validOptionalIds = data.selectedOptionalIds.filter((id) =>
@@ -1010,8 +1166,9 @@ export const respondToPublicQuoteFn = createServerFn({ method: "POST" })
     const totals = calculateQuoteTotals({
       items,
       tickedOptionalIds: validOptionalIds,
-      minCharge: business?.min_charge || 0,
-      taxRate: business?.tax_rate || 0,
+      minCharge: bizSettings.min_charge,
+      gstRate: bizSettings.gst_rate,
+      pricesIncludeGst: bizSettings.prices_include_gst,
       depositPct: quote.deposit_pct || 0,
     });
 
@@ -1019,10 +1176,7 @@ export const respondToPublicQuoteFn = createServerFn({ method: "POST" })
     await svc.entities.Quote.update(quote.id, {
       status: "accepted",
       selected_optional_ids: validOptionalIds,
-      subtotal: totals.subtotal,
-      tax_amount: totals.taxAmount,
-      total: totals.total,
-      deposit_amount: totals.depositAmount,
+      ...serializeQuoteTotals(totals),
       accepted_at: nowIso,
       accepted_name: cleanName,
       accepted_ip: ip,
@@ -1032,18 +1186,22 @@ export const respondToPublicQuoteFn = createServerFn({ method: "POST" })
     await svc.entities.QuoteEvent.create({
       quote_id: quote.id,
       type: "accepted",
-      meta: { accepted_name: cleanName, total: totals.total, accepted_at: nowIso },
+      meta: {
+        accepted_name: cleanName,
+        total_incl_gst: totals.totalInclGst,
+        accepted_at: nowIso,
+      },
     });
 
     await notifyOwnerByEmail({
       base44,
       toEmail: business?.email,
-      subject: `Quote accepted by ${cleanName} ($${totals.total.toLocaleString("en-US")})`,
-      heading: `${cleanName} accepted your tree quote`,
+      subject: `Quote accepted by ${cleanName} (${formatMoney(totals.totalInclGst, bizSettings.currency)})`,
+      heading: `${cleanName} accepted your painting quote`,
       detailLines: [
         `Property: ${quote.address || "Address on file"}`,
-        `Signed total: $${totals.total.toLocaleString("en-US")}`,
-        `Signed by: ${cleanName} at ${new Date(nowIso).toLocaleString("en-US", { timeZone: "UTC" })} UTC`,
+        `Signed total (incl. GST): ${formatMoney(totals.totalInclGst, bizSettings.currency)}`,
+        `Signed by: ${cleanName}`,
       ],
     });
 
@@ -1052,6 +1210,6 @@ export const respondToPublicQuoteFn = createServerFn({ method: "POST" })
       status: "accepted",
       accepted_at: nowIso,
       accepted_name: cleanName,
-      total: totals.total,
+      total: totals.totalInclGst,
     };
   });

@@ -8,7 +8,7 @@
     "item_id": {
       "type": "string"
     },
-    "tree_number": {
+    "area_number": {
       "type": "number"
     },
     "file_uri": {
@@ -19,12 +19,10 @@
       "type": "number"
     },
     "pin_x": {
-      "type": "number",
-      "default": 0.5
+      "type": "number"
     },
     "pin_y": {
-      "type": "number",
-      "default": 0.4
+      "type": "number"
     }
   },
   "required": [

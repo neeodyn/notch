@@ -4,6 +4,8 @@ import { z } from "zod";
 
 const PayloadSchema = z.object({
   business_id: z.string().min(1).max(120),
+  plan: z.enum(["founding", "active"]).default("active"),
+  billing_interval: z.enum(["monthly", "yearly"]).optional(),
   event: z.enum(["subscription.activated", "checkout.completed"]).default("subscription.activated"),
 });
 
@@ -27,10 +29,11 @@ export const Route = createFileRoute("/api/billing/webhook")({
         const payload = PayloadSchema.parse(await request.json());
         const svc = context.getBase44().asServiceRole;
         await svc.entities.Business.update(payload.business_id, {
-          plan: "active",
+          plan: payload.plan,
+          ...(payload.billing_interval ? { billing_interval: payload.billing_interval } : {}),
         });
 
-        return Response.json({ ok: true, plan: "active" });
+        return Response.json({ ok: true, plan: payload.plan });
       },
     },
   },

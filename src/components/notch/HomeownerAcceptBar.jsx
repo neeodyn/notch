@@ -9,7 +9,7 @@ export default function HomeownerAcceptBar({
   total,
   depositPct,
   depositAmount,
-  currency = "USD",
+  currency = "NZD",
   onAccept,
   onDecline,
   submitting,
@@ -95,7 +95,7 @@ export default function HomeownerAcceptBar({
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Claire Whitaker"
+                placeholder="Sarah Miller"
                 className="mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[16px]"
               />
             </label>
@@ -107,7 +107,7 @@ export default function HomeownerAcceptBar({
                 onChange={(e) => setAgreed(e.target.checked)}
                 className="mt-1 h-5 w-5 shrink-0 accent-[hsl(var(--primary))]"
               />
-              <span>I approve the selected tree work and agree to the terms on this quote.</span>
+              <span>I approve the selected painting scope (incl. GST) and agree to the terms on this quote.</span>
             </label>
 
             <button

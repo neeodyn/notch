@@ -5,85 +5,83 @@
     "quote_id": {
       "type": "string"
     },
-    "tree_number": {
+    "area_number": {
       "type": "number"
     },
-    "label": {
+    "name": {
       "type": "string"
     },
-    "species": {
-      "type": "string"
+    "kind": {
+      "type": "string",
+      "enum": [
+        "interior",
+        "exterior",
+        "extra"
+      ],
+      "enumColors": [
+        "blue",
+        "green",
+        "purple"
+      ],
+      "default": "interior"
     },
-    "height_ft": {
+    "length_m": {
       "type": "number"
     },
-    "size_class": {
-      "type": "string",
-      "enum": [
-        "small",
-        "medium",
-        "large",
-        "xl"
-      ],
-      "enumColors": [
-        "green",
-        "blue",
-        "yellow",
-        "purple"
-      ]
+    "width_m": {
+      "type": "number"
     },
-    "work": {
-      "type": "string",
-      "enum": [
-        "remove",
-        "trim",
-        "crown_reduce",
-        "deadwood",
-        "stump_grind"
-      ],
-      "enumColors": [
-        "red",
-        "green",
-        "blue",
-        "yellow",
-        "purple"
-      ]
+    "stud_m": {
+      "type": "number"
     },
-    "hazards": {
+    "area_m2_spoken": {
+      "type": "number"
+    },
+    "surfaces": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "enum": [
+          "walls",
+          "ceiling",
+          "skirting",
+          "weatherboards",
+          "soffits",
+          "fascia"
+        ]
       }
     },
-    "stump": {
+    "doors": {
+      "type": "number",
+      "default": 0
+    },
+    "windows": {
+      "type": "number",
+      "default": 0
+    },
+    "coats": {
+      "type": "number",
+      "default": 2
+    },
+    "prep": {
       "type": "string",
       "enum": [
-        "grind",
-        "optional",
-        "leave"
+        "light",
+        "standard",
+        "heavy"
       ],
       "enumColors": [
         "green",
-        "yellow",
-        "gray"
+        "blue",
+        "yellow"
       ],
-      "default": "leave"
+      "default": "standard"
     },
-    "haul": {
-      "type": "boolean",
-      "default": true
+    "prep_notes": {
+      "type": "string"
     },
-    "optional": {
-      "type": "boolean",
-      "default": false
-    },
-    "is_stump_line": {
-      "type": "boolean",
-      "default": false
-    },
-    "needs_owner_price": {
-      "type": "boolean",
-      "default": false
+    "colour": {
+      "type": "string"
     },
     "spoken_price": {
       "type": "number"
@@ -110,6 +108,18 @@
       ],
       "default": "none"
     },
+    "optional": {
+      "type": "boolean",
+      "default": false
+    },
+    "is_optional_split": {
+      "type": "boolean",
+      "default": false
+    },
+    "needs_owner_price": {
+      "type": "boolean",
+      "default": false
+    },
     "flagged": {
       "type": "boolean",
       "default": false
@@ -123,7 +133,7 @@
   },
   "required": [
     "quote_id",
-    "tree_number"
+    "area_number"
   ],
   "rls": {
     "read": {

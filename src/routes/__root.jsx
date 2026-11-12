@@ -12,15 +12,15 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { title: "Notch — Talk the yard. Send the quote." },
+      { title: "Notch — Walk the house. Send the quote." },
       {
         name: "description",
-        content: "Walk the yard talking and snap each tree. One recording writes up the whole tree service quote.",
+        content: "Quoting built for New Zealand painters and decorators. Speak room dimensions, snap photos, and send a GST-ready quote link.",
       },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "apple-mobile-web-app-title", content: "Notch" },
-      { name: "theme-color", content: "#1B4332" },
+      { name: "theme-color", content: "#163A2C" },
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),

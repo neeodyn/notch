@@ -22,10 +22,10 @@ export default function CheckAlertBanner({ unclear = [], items = [], onDismissUn
         {missingPriceItems.map((it) => (
           <li key={`missing-${it.id}`} className="flex items-center justify-between gap-2">
             <span>
-              <strong>{it.label || `Tree ${it.tree_number}`}</strong> needs your price.
+              <strong>{it.name || `Area ${it.area_number}`}</strong> needs your price.
             </span>
             <a
-              href={`#tree-card-${it.id}`}
+              href={`#area-card-${it.id}`}
               className="flex min-h-[44px] shrink-0 items-center rounded-xl px-3 text-[14px] font-semibold underline"
             >
               Set price
@@ -36,11 +36,11 @@ export default function CheckAlertBanner({ unclear = [], items = [], onDismissUn
         {flaggedItems.map((it) => (
           <li key={`flag-${it.id}`} className="flex items-center justify-between gap-2">
             <span>
-              <strong>{it.label || `Tree ${it.tree_number}`}</strong> spoken price (${it.price}) is far from price book
-              (${it.price_book_estimate}).
+              <strong>{it.name || `Area ${it.area_number}`}</strong> spoken price (${it.price}) is below half or over
+              double your rate card (${it.price_book_estimate}).
             </span>
             <a
-              href={`#tree-card-${it.id}`}
+              href={`#area-card-${it.id}`}
               className="flex min-h-[44px] shrink-0 items-center rounded-xl px-3 text-[14px] font-semibold underline"
             >
               Review

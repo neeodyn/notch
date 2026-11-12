@@ -17,12 +17,12 @@ export const Route = createFileRoute("/api/edit")({
         const base44 = context.getBase44();
         const quote = await base44.entities.Quote.get(body.quoteId);
         const bizPage = await base44.entities.Business.filter(
-          { created_by_id: context.user.id },
+          { owner_id: context.user.id },
           { sort: "-created_date", limit: 1 }
         );
         const itemsPage = await base44.entities.QuoteItem.filter(
           { quote_id: quote.id },
-          { sort: "tree_number", limit: 100 }
+          { sort: "area_number", limit: 100 }
         );
 
         const result = await applyVoiceEditWithRetry({

@@ -27,7 +27,8 @@ export const Route = createFileRoute("/api/q/$token/view")({
 
         if (!quote.viewed_at) {
           const nowIso = new Date().toISOString();
-          const nextStatus = quote.status === "sent" || quote.status === "draft" ? "viewed" : quote.status;
+          const nextStatus =
+            quote.status === "sent" || quote.status === "draft" ? "viewed" : quote.status;
           await svc.entities.Quote.update(quote.id, { viewed_at: nowIso, status: nextStatus });
           await svc.entities.QuoteEvent.create({
             quote_id: quote.id,
@@ -40,8 +41,8 @@ export const Route = createFileRoute("/api/q/$token/view")({
           await notifyOwnerByEmail({
             base44,
             toEmail: business?.email,
-            subject: `${quote.client_name || "Homeowner"} opened your quote`,
-            heading: `${quote.client_name || "Your client"} opened their tree quote`,
+            subject: `${quote.client_name || "Homeowner"} opened your painting quote`,
+            heading: `${quote.client_name || "Your client"} opened their painting quote`,
             detailLines: [`Property: ${quote.address || ""}`],
           });
           return Response.json({ viewed: true, firstView: true });

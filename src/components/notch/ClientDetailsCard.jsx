@@ -59,7 +59,7 @@ export default function ClientDetailsCard({ quote, highlightedKeys = [], onSaveP
               type="text"
               value={draft.client_name}
               onChange={(e) => setDraft({ ...draft, client_name: e.target.value })}
-              placeholder="Claire Whitaker"
+              placeholder="Sarah Miller"
               className="mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[16px]"
             />
           </label>
@@ -69,7 +69,7 @@ export default function ClientDetailsCard({ quote, highlightedKeys = [], onSaveP
               type="tel"
               value={draft.client_phone}
               onChange={(e) => setDraft({ ...draft, client_phone: e.target.value })}
-              placeholder="(512) 555-0148"
+              placeholder="021 555 0134"
               className="mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[16px]"
             />
           </label>
@@ -79,7 +79,7 @@ export default function ClientDetailsCard({ quote, highlightedKeys = [], onSaveP
               type="text"
               value={draft.address}
               onChange={(e) => setDraft({ ...draft, address: e.target.value })}
-              placeholder="418 Hollow Creek Ln"
+              placeholder="14 Kauri Street, Ponsonby, Auckland"
               className="mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[16px]"
             />
           </label>
@@ -89,7 +89,7 @@ export default function ClientDetailsCard({ quote, highlightedKeys = [], onSaveP
               type="email"
               value={draft.client_email}
               onChange={(e) => setDraft({ ...draft, client_email: e.target.value })}
-              placeholder="client@example.com"
+              placeholder="sarah@example.co.nz"
               className="mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[16px]"
             />
           </label>
@@ -105,12 +105,12 @@ export default function ClientDetailsCard({ quote, highlightedKeys = [], onSaveP
             />
           </label>
           <label className="block sm:col-span-2">
-            <span className="text-[13px] font-medium text-muted-foreground">Crew / homeowner notes</span>
+            <span className="text-[13px] font-medium text-muted-foreground">Site / colour notes</span>
             <textarea
               rows={2}
               value={draft.notes}
               onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
-              placeholder="Gate width, access notes, wood chip instructions…"
+              placeholder="Access lockbox, furniture sheeting, Resene or Dulux colour notes…"
               className="mt-1 w-full rounded-xl border border-input bg-background p-3 text-[16px]"
             />
           </label>

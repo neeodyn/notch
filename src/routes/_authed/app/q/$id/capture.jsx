@@ -8,13 +8,17 @@ import { clearLocalCapture, loadLocalCapture, saveLocalCapture } from "@/lib/cap
 import { fillQuoteFromCaptureFn, transcribeCaptureFn } from "@/lib/server-fns";
 
 export const Route = createFileRoute("/_authed/app/q/$id/capture")({
-  head: () => ({ meta: [{ title: "Walk the yard — Notch" }] }),
+  head: () => ({ meta: [{ title: "Walk the house — Notch" }] }),
   component: CaptureScreen,
 });
 
+const SAMPLE_WALK_TEXT =
+  "Quote for Sarah Miller, 14 Kauri Street, Ponsonby, 021 555 0134. Lounge, five by four, stud two-four, walls and ceiling, two coats, eleven hundred. Hallway, eight by one-two, walls only, ceiling optional, four hundred. Thirty percent deposit.";
+
 function pickRecorderMime() {
   if (typeof window === "undefined" || !window.MediaRecorder) return "";
-  if (window.MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) return "audio/webm;codecs=opus";
+  if (window.MediaRecorder.isTypeSupported("audio/webm;codecs=opus"))
+    return "audio/webm;codecs=opus";
   if (window.MediaRecorder.isTypeSupported("audio/mp4")) return "audio/mp4";
   return "";
 }
@@ -41,7 +45,6 @@ function CaptureScreen() {
   const [uploadError, setUploadError] = useState("");
   const [hasSavedLocalRecovery, setHasSavedLocalRecovery] = useState(false);
 
-  // Start single audio+video stream immediately on mount
   useEffect(() => {
     let cancelled = false;
     let timerId = null;
@@ -70,7 +73,6 @@ function CaptureScreen() {
         }
         setCameraReady(true);
 
-        // MediaRecorder on the audio track ONLY
         const audioOnlyStream = new MediaStream(media.getAudioTracks());
         const mimeType = pickRecorderMime();
         const recorder = mimeType
@@ -88,7 +90,6 @@ function CaptureScreen() {
           setElapsedS(Math.floor((Date.now() - startTimeRef.current) / 1000));
         }, 500);
       } catch {
-        // Headless browser or denied camera/mic -> indoor text/photo fallback
         if (!cancelled) {
           setFallbackMode(true);
           startTimeRef.current = Date.now();
@@ -113,7 +114,6 @@ function CaptureScreen() {
     };
   }, [quoteId]);
 
-  // Snap current video frame onto canvas (JPEG max 1600px @ 0.82), never opening native camera
   async function handleSnapVideoFrame() {
     const video = videoRef.current;
     if (!video || !video.videoWidth) return;
@@ -156,34 +156,36 @@ function CaptureScreen() {
     try {
       let working = { ...localData };
 
-      // 1. Upload audio if needed
       setProcessingWord("Listening…");
       if (working.audioBlob && !working.uploadedAudioUri) {
         const ext = (working.audioMime || "").includes("mp4") ? "m4a" : "webm";
-        const audioFile = new File([working.audioBlob], `yard-${quoteId}.${ext}`, {
+        const audioFile = new File([working.audioBlob], `walk-${quoteId}.${ext}`, {
           type: working.audioMime || "audio/webm",
         });
-        const { file_uri } = await base44.integrations.Core.UploadPrivateFile({ file: audioFile });
+        const { file_uri } = await base44.integrations.Core.UploadPrivateFile({
+          file: audioFile,
+        });
         working.uploadedAudioUri = file_uri;
         await saveLocalCapture(working).catch(() => {});
       }
 
-      // 2. Upload snapped photos if needed
       const updatedPhotos = [];
       for (const p of working.photos || []) {
         if (p.fileUri) {
           updatedPhotos.push(p);
         } else if (p.blob) {
-          const photoFile = new File([p.blob], `${p.localId}.jpg`, { type: "image/jpeg" });
-          const { file_uri } = await base44.integrations.Core.UploadPrivateFile({ file: photoFile });
-          const savedP = { ...p, fileUri: file_uri };
-          updatedPhotos.push(savedP);
+          const photoFile = new File([p.blob], `${p.localId}.jpg`, {
+            type: "image/jpeg",
+          });
+          const { file_uri } = await base44.integrations.Core.UploadPrivateFile({
+            file: photoFile,
+          });
+          updatedPhotos.push({ ...p, fileUri: file_uri });
         }
       }
       working.photos = updatedPhotos;
       await saveLocalCapture(working).catch(() => {});
 
-      // 3. Transcribe
       const transcribed = await runTranscribe({
         data: {
           quoteId,
@@ -194,9 +196,8 @@ function CaptureScreen() {
         },
       });
 
-      // 4. Fill + Match Photos + Price
       setProcessingWord("Writing it up…");
-      await new Promise((r) => setTimeout(r, 220));
+      await new Promise((r) => setTimeout(r, 200));
       setProcessingWord("Matching photos…");
       const fillPromise = runFill({
         data: {
@@ -211,7 +212,7 @@ function CaptureScreen() {
             })),
         },
       });
-      await new Promise((r) => setTimeout(r, 300));
+      await new Promise((r) => setTimeout(r, 280));
       setProcessingWord("Pricing…");
       await fillPromise;
 
@@ -222,7 +223,9 @@ function CaptureScreen() {
       });
     } catch (err) {
       setProcessingWord("");
-      setUploadError(err?.message || "Upload interrupted. Your recording is saved on this device.");
+      setUploadError(
+        err?.message || "Upload interrupted. Your recording is safely saved on this device."
+      );
       setHasSavedLocalRecovery(true);
     }
   }
@@ -245,7 +248,6 @@ function CaptureScreen() {
       streamRef.current.getTracks().forEach((t) => t.stop());
     }
 
-    // Save to IndexedDB FIRST before network upload
     const localPayload = {
       quoteId,
       audioBlob,
@@ -268,7 +270,6 @@ function CaptureScreen() {
   const mins = Math.floor(elapsedS / 60);
   const secs = String(elapsedS % 60).padStart(2, "0");
 
-  // Full-screen Progress Words state after Done
   if (processingWord || uploadError) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 px-6 text-center text-white">
@@ -276,7 +277,9 @@ function CaptureScreen() {
           <div className="space-y-3">
             <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-white" />
             <p className="text-[26px] font-bold tracking-[-0.02em]">{processingWord}</p>
-            <p className="text-[15px] text-zinc-400">Saved locally first so nothing gets lost</p>
+            <p className="text-[15px] text-zinc-400">
+              Calculating room m², matching photos, and adding 15% GST
+            </p>
           </div>
         ) : (
           <div className="max-w-sm space-y-4 rounded-[20px] border border-white/15 bg-zinc-900 p-6">
@@ -295,7 +298,7 @@ function CaptureScreen() {
               params={{ id: quoteId }}
               className="flex min-h-[44px] items-center justify-center text-[15px] text-zinc-400 hover:text-white"
             >
-              Skip to manual quote editor
+              Open manual quote editor
             </Link>
           </div>
         )}
@@ -305,7 +308,6 @@ function CaptureScreen() {
 
   return (
     <div className="relative flex min-h-screen flex-col justify-between overflow-hidden bg-zinc-950 text-white">
-      {/* Full-screen live camera stream */}
       {!fallbackMode && (
         <video
           ref={videoRef}
@@ -317,71 +319,97 @@ function CaptureScreen() {
       )}
 
       {/* Top HUD */}
-      <div className="relative z-10 flex items-center justify-between px-4 pt-4 safe-top sm:px-6">
-        <Link
-          to="/app"
-          aria-label="Cancel capture"
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-black/65 text-white backdrop-blur-md"
-        >
-          <X className="h-5 w-5" />
-        </Link>
+      <div className="relative z-10 space-y-2.5 px-4 pt-4 safe-top sm:px-6">
+        <div className="flex items-center justify-between">
+          <Link
+            to="/app"
+            aria-label="Cancel capture"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/65 text-white backdrop-blur-md"
+          >
+            <X className="h-5 w-5" />
+          </Link>
 
-        <div className="flex items-center gap-3 rounded-full bg-black/65 px-4 py-2 backdrop-blur-md">
-          <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-          <span className="tabular-money text-[16px] font-semibold">
-            {mins}:{secs}
-          </span>
-          <AudioWaveform stream={stream} active={cameraReady} barCount={12} />
+          <div className="flex items-center gap-3 rounded-full bg-black/65 px-4 py-2 backdrop-blur-md">
+            <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+            <span className="tabular-money text-[16px] font-semibold">
+              {mins}:{secs}
+            </span>
+            <AudioWaveform stream={stream} active={cameraReady} barCount={12} />
+          </div>
+
+          <div className="w-11" />
         </div>
 
-        <div className="w-11" />
+        {!fallbackMode && (
+          <div className="mx-auto max-w-md rounded-full bg-black/55 px-4 py-1.5 text-center text-[12px] font-medium text-zinc-200 backdrop-blur-md">
+            Say client, room L × W, stud, surfaces, coats &amp; price · Snap each room
+          </div>
+        )}
       </div>
 
-      {/* Fallback mode when device has no camera/mic (e.g. desktop test environment) */}
+      {/* Desktop / No-Camera Mode */}
       {fallbackMode && (
         <div className="relative z-10 mx-auto my-auto w-full max-w-lg px-4">
-          <div className="space-y-4 rounded-[20px] border border-white/15 bg-zinc-900 p-5">
-            <div>
-              <p className="text-[13px] font-semibold uppercase tracking-[0.04em] text-emerald-400">
-                Camera or microphone unavailable
-              </p>
-              <h1 className="mt-1 text-[22px] font-bold">Describe the yard walk</h1>
-              <p className="mt-1 text-[14px] text-zinc-300">
-                On an iPhone outdoors, your rear camera and mic stream here automatically. Type what you would say on
-                the walk to test the full quote builder.
-              </p>
+          <div className="space-y-4 rounded-[22px] border border-white/15 bg-zinc-900 p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.05em] text-emerald-400">
+                  Camera or microphone unavailable
+                </p>
+                <h1 className="mt-1 text-[22px] font-bold">Describe the property walk</h1>
+                <p className="mt-1 text-[14px] text-zinc-300">
+                  On an iPhone on site, your rear camera and mic stream full screen. Paste or type a walk-through below
+                  to test automatic m² and GST quoting.
+                </p>
+              </div>
             </div>
 
             <textarea
               rows={5}
               value={fallbackTranscript}
               onChange={(e) => setFallbackTranscript(e.target.value)}
-              placeholder="Client is Mark Rivera at 214 Cedar Bend Rd, phone 512-555-0188. First tree is a 55-foot live oak over the driveway, crown reduction and haul brush, twelve hundred. Second tree is a dead 35-foot pine by the back fence, remove it for eight fifty, grind stump."
+              placeholder={SAMPLE_WALK_TEXT}
               className="w-full rounded-2xl border border-white/15 bg-zinc-950 p-3.5 text-[16px] text-white placeholder:text-zinc-500"
             />
 
-            {hasSavedLocalRecovery && (
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={handleRetrySaved}
-                className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-white/10 text-[14px] font-semibold text-white"
+                onClick={() => setFallbackTranscript(SAMPLE_WALK_TEXT)}
+                className="min-h-[40px] rounded-xl bg-white/10 px-3.5 text-[13px] font-semibold text-zinc-100 hover:bg-white/15"
               >
-                <RefreshCw className="h-4 w-4" />
-                <span>Resume saved recording on this device</span>
+                Load Ponsonby walk example
               </button>
-            )}
+
+              {hasSavedLocalRecovery && (
+                <button
+                  type="button"
+                  onClick={handleRetrySaved}
+                  className="flex min-h-[40px] items-center gap-1.5 rounded-xl bg-white/10 px-3.5 text-[13px] font-semibold text-white"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  <span>Resume saved walk</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* Bottom Thumb-Zone Controls */}
       <div className="relative z-10 bg-black/70 px-4 pb-6 pt-4 backdrop-blur-md safe-bottom sm:px-6">
-        {/* Numbered thumbnails strip */}
         {snaps.length > 0 && (
           <div className="mx-auto mb-4 flex max-w-lg gap-2.5 overflow-x-auto pb-1">
             {snaps.map((snap, idx) => (
-              <div key={snap.localId} className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/40">
-                <img src={snap.previewUrl} alt={`Tree ${idx + 1}`} className="h-full w-full object-cover" />
+              <div
+                key={snap.localId}
+                className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/40"
+              >
+                <img
+                  src={snap.previewUrl}
+                  alt={`Room ${idx + 1}`}
+                  className="h-full w-full object-cover"
+                />
                 <span className="absolute left-1 top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold text-white">
                   {idx + 1}
                 </span>
@@ -397,12 +425,11 @@ function CaptureScreen() {
             </p>
           </div>
 
-          {/* 88x88 Snap button (captures live video frame without opening native camera) */}
           {!fallbackMode ? (
             <button
               type="button"
               onClick={handleSnapVideoFrame}
-              aria-label="Snap tree photo"
+              aria-label="Snap room photo"
               className="flex h-[88px] w-[88px] shrink-0 flex-col items-center justify-center gap-1 rounded-full border-4 border-white bg-white/20 text-white active:scale-95"
             >
               <Camera className="h-7 w-7" />
@@ -412,12 +439,11 @@ function CaptureScreen() {
             <div className="h-[88px] w-4" />
           )}
 
-          {/* 56px Done button */}
           <button
             type="button"
             onClick={handleDone}
             disabled={fallbackMode && !fallbackTranscript.trim()}
-            className="flex h-14 min-w-[104px] items-center justify-center gap-1.5 rounded-2xl bg-primary px-5 text-[17px] font-semibold text-primary-foreground disabled:opacity-45"
+            className="flex h-14 min-w-[108px] items-center justify-center gap-1.5 rounded-2xl bg-primary px-5 text-[17px] font-semibold text-primary-foreground disabled:opacity-45"
           >
             <Check className="h-5 w-5" />
             <span>Done</span>

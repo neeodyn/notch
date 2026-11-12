@@ -14,6 +14,8 @@ export const Route = createFileRoute("/_authed/app/setup")({
   component: SetupScreen,
 });
 
+const STUD_PRESETS = [2.4, 2.7, 3.0, 3.2];
+
 function SetupScreen() {
   const { user, business } = Route.useLoaderData();
   const navigate = useNavigate();
@@ -22,6 +24,11 @@ function SetupScreen() {
   const [name, setName] = useState(business?.name || "");
   const [phone, setPhone] = useState(business?.phone || "");
   const [email, setEmail] = useState(business?.email || user?.email || "");
+  const [gstNumber, setGstNumber] = useState(business?.gst_number || "");
+  const [pricesIncludeGst, setPricesIncludeGst] = useState(
+    Boolean(business?.prices_include_gst)
+  );
+  const [defaultStudM, setDefaultStudM] = useState(business?.default_stud_m ?? 2.4);
   const [logoUri, setLogoUri] = useState(business?.logo_uri || "");
   const [logoPreview, setLogoPreview] = useState(business?.logo_url || "");
   const [priceBook, setPriceBook] = useState(business?.price_book || null);
@@ -34,7 +41,9 @@ function SetupScreen() {
     setUploadingLogo(true);
     try {
       const { file_uri } = await base44.integrations.Core.UploadPrivateFile({ file });
-      const { signed_url } = await base44.integrations.Core.CreateFileSignedUrl({ file_uri });
+      const { signed_url } = await base44.integrations.Core.CreateFileSignedUrl({
+        file_uri,
+      });
       setLogoUri(file_uri);
       setLogoPreview(signed_url);
       toast.success("Logo uploaded");
@@ -46,7 +55,7 @@ function SetupScreen() {
   }
 
   async function handleSubmit(skipBook = false) {
-    const cleanName = name.trim() || "My Tree Service";
+    const cleanName = name.trim() || "My Painting & Decorating";
     setSaving(true);
     try {
       await runSaveBusiness({
@@ -55,12 +64,16 @@ function SetupScreen() {
           phone: phone.trim(),
           email: email.trim(),
           logo_uri: logoUri || null,
-          currency: business?.currency || "USD",
-          tax_rate: business?.tax_rate || 0,
+          currency: business?.currency || "NZD",
+          gst_number: gstNumber.trim(),
+          gst_rate: business?.gst_rate ?? 0.15,
+          prices_include_gst: pricesIncludeGst,
+          default_stud_m: Number(defaultStudM) || 2.4,
+          openings_pct: business?.openings_pct ?? 10,
           min_charge: business?.min_charge || 0,
           terms:
             business?.terms ||
-            "Payment due upon completion. Please mark any private sprinklers or shallow yard lines before crew arrival.",
+            "Quote valid for 30 days. Preparation includes sugar soap wash, stopping, sanding, and premium Resene or Dulux coatings. Final colours confirmed before start.",
           price_book: skipBook ? null : priceBook,
         },
       });
@@ -95,16 +108,21 @@ function SetupScreen() {
 
       <main className="mx-auto mt-3 max-w-2xl space-y-6 px-4 sm:px-5">
         <div>
-          <h1 className="large-title text-foreground">Your business</h1>
+          <h1 className="large-title text-foreground">Your painting business</h1>
           <p className="mt-1 text-[16px] text-muted-foreground">
-            Shown at the top of every homeowner quote link you send.
+            Shown on every homeowner quote. Everything here can be skipped or changed later.
           </p>
         </div>
 
-        <section className="space-y-4 rounded-[18px] border border-border bg-card p-4 sm:p-5">
+        {/* Company & GST Card */}
+        <section className="apple-surface space-y-4 rounded-[20px] border border-border bg-card p-5">
           <div className="flex items-center gap-4">
             {logoPreview ? (
-              <Image src={logoPreview} alt="Company logo" className="h-16 w-16 rounded-2xl border border-border object-cover" />
+              <Image
+                src={logoPreview}
+                alt="Company logo"
+                className="h-16 w-16 rounded-2xl border border-border object-cover"
+              />
             ) : (
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary text-[13px] font-semibold text-muted-foreground">
                 Logo
@@ -113,49 +131,135 @@ function SetupScreen() {
             <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl bg-secondary px-4 text-[15px] font-semibold text-foreground">
               <Upload className="h-4 w-4" />
               <span>{uploadingLogo ? "Uploading…" : "Upload logo"}</span>
-              <input type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleLogoChange}
+              />
             </label>
           </div>
 
           <label className="block">
-            <span className="text-[14px] font-medium text-muted-foreground">Company name</span>
+            <span className="text-[14px] font-medium text-muted-foreground">
+              Business name
+            </span>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Redwood Ridge Tree Care"
+              placeholder="Kauri Coast Painters"
               className="mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[17px]"
             />
           </label>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className="text-[14px] font-medium text-muted-foreground">Callback phone</span>
+              <span className="text-[14px] font-medium text-muted-foreground">
+                Mobile / callback phone
+              </span>
               <input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="(512) 555-0194"
+                placeholder="021 555 0198"
                 className="mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[17px]"
               />
             </label>
             <label className="block">
-              <span className="text-[14px] font-medium text-muted-foreground">Alert email</span>
+              <span className="text-[14px] font-medium text-muted-foreground">
+                GST number (optional)
+              </span>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="owner@treeservice.com"
-                className="mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[17px]"
+                type="text"
+                value={gstNumber}
+                onChange={(e) => setGstNumber(e.target.value)}
+                placeholder="128-492-017"
+                className="tabular-money mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[17px]"
               />
             </label>
           </div>
+
+          <label className="block">
+            <span className="text-[14px] font-medium text-muted-foreground">
+              Notification email
+            </span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="quotes@kauricoastpainters.co.nz"
+              className="mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[17px]"
+            />
+          </label>
         </section>
 
+        {/* GST Mode & Default Stud Height */}
+        <section className="apple-surface space-y-4 rounded-[20px] border border-border bg-card p-5">
+          <label className="flex min-h-[48px] cursor-pointer items-center justify-between gap-4">
+            <div>
+              <span className="block text-[16px] font-semibold text-foreground">
+                My spoken &amp; rate-card prices include GST
+              </span>
+              <span className="text-[13px] text-muted-foreground">
+                {pricesIncludeGst
+                  ? "15% GST is extracted inside your line totals"
+                  : "15% GST is added on top of your room prices (standard trade mode)"}
+              </span>
+            </div>
+            <input
+              type="checkbox"
+              checked={pricesIncludeGst}
+              onChange={(e) => setPricesIncludeGst(e.target.checked)}
+              className="h-6 w-6 shrink-0 accent-[hsl(var(--primary))]"
+            />
+          </label>
+
+          <div className="border-t border-border pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <span className="block text-[16px] font-semibold text-foreground">
+                  Default stud height (m)
+                </span>
+                <span className="text-[13px] text-muted-foreground">
+                  Used for wall m² when stud height is not spoken
+                </span>
+              </div>
+              <input
+                type="number"
+                min="1.8"
+                max="6"
+                step="0.1"
+                value={defaultStudM}
+                onChange={(e) => setDefaultStudM(e.target.value)}
+                className="tabular-money h-12 w-24 rounded-xl border border-input bg-background px-3 text-right text-[18px] font-bold"
+              />
+            </div>
+
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              {STUD_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setDefaultStudM(preset)}
+                  className={`min-h-[38px] rounded-xl px-3.5 text-[13px] font-semibold ${
+                    Number(defaultStudM) === preset
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {preset.toFixed(1)} m {preset === 2.4 ? "(Standard)" : preset >= 3 ? "(Villa)" : ""}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Optional Painter Price Book */}
         <PriceBookEditor value={priceBook} onChange={setPriceBook} />
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-md safe-bottom">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-xl safe-bottom">
         <div className="mx-auto max-w-2xl px-4 pt-3 sm:px-5">
           <button
             type="button"

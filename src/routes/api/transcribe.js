@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireUserRoute } from "@/lib/auth-middleware";
-import { transcribeAudioOnServer } from "@/lib/quote-engine.server";
+import { PAINTER_VOCAB_PROMPT, transcribeAudioOnServer } from "@/lib/quote-engine.server";
 
 const BodySchema = z.object({
   quoteId: z.string().min(1).max(120),
@@ -32,6 +32,7 @@ export const Route = createFileRoute("/api/transcribe")({
           recordingId: res.recording.id,
           transcript: res.transcript,
           segments: res.segments,
+          vocabularyPrompt: PAINTER_VOCAB_PROMPT,
         });
       },
     },
