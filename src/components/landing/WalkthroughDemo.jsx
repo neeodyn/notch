@@ -3,6 +3,29 @@ import { Camera, Check, Mic, Pause, Play, RotateCcw } from "lucide-react";
 import { Image } from "@/components/ui/image";
 import { NZ_IMAGERY } from "@/lib/nzImagery";
 
+// The finished quote. Each step of the walk reveals more of its lines.
+// Non-breaking spaces keep a measurement and its unit on the same line.
+const QUOTE_LINES = [
+  {
+    label: "Lounge · 5\u00a0×\u00a04\u00a0m",
+    metrics: "stud\u00a02.4 · walls 38.9\u00a0m², ceiling 20\u00a0m² · 2\u00a0coats",
+    price: "$1,100",
+    badge: "Spoken",
+  },
+  {
+    label: "Hallway · 8\u00a0×\u00a01.2\u00a0m",
+    metrics: "walls 39.7\u00a0m² · 2\u00a0coats",
+    price: "$400",
+    badge: "Spoken",
+  },
+  {
+    label: "Hallway ceiling",
+    metrics: "ceiling 9.6\u00a0m² · 2\u00a0coats",
+    price: "+$190",
+    badge: "Optional",
+  },
+];
+
 const WALKTHROUGH_STEPS = [
   {
     at: 0,
@@ -17,7 +40,7 @@ const WALKTHROUGH_STEPS = [
     exclGst: 0,
     gst: 0,
     inclGst: 0,
-    lines: [],
+    linesShown: 0,
   },
   {
     at: 10,
@@ -32,14 +55,7 @@ const WALKTHROUGH_STEPS = [
     exclGst: 1100,
     gst: 165,
     inclGst: 1265,
-    lines: [
-      {
-        label: "Lounge · 5 × 4 m · stud 2.4",
-        metrics: "walls 38.9 m², ceiling 20 m² · 2 coats",
-        price: "$1,100",
-        badge: "Spoken",
-      },
-    ],
+    linesShown: 1,
   },
   {
     at: 23,
@@ -54,26 +70,7 @@ const WALKTHROUGH_STEPS = [
     exclGst: 1500,
     gst: 225,
     inclGst: 1725,
-    lines: [
-      {
-        label: "Lounge · 5 × 4 m · stud 2.4",
-        metrics: "walls 38.9 m², ceiling 20 m² · 2 coats",
-        price: "$1,100",
-        badge: "Spoken",
-      },
-      {
-        label: "Hallway · 8 × 1.2 m",
-        metrics: "walls 39.7 m² · 2 coats",
-        price: "$400",
-        badge: "Spoken",
-      },
-      {
-        label: "Optional · Hallway Ceiling",
-        metrics: "ceiling 9.6 m² · 2 coats",
-        price: "+$190",
-        badge: "Optional",
-      },
-    ],
+    linesShown: 3,
   },
   {
     at: 34,
@@ -88,26 +85,7 @@ const WALKTHROUGH_STEPS = [
     exclGst: 1500,
     gst: 225,
     inclGst: 1725,
-    lines: [
-      {
-        label: "Lounge · 5 × 4 m · stud 2.4",
-        metrics: "walls 38.9 m², ceiling 20 m² · 2 coats",
-        price: "$1,100",
-        badge: "Spoken",
-      },
-      {
-        label: "Hallway · 8 × 1.2 m",
-        metrics: "walls 39.7 m² · 2 coats",
-        price: "$400",
-        badge: "Spoken",
-      },
-      {
-        label: "Optional · Hallway Ceiling",
-        metrics: "ceiling 9.6 m² · 2 coats",
-        price: "+$190",
-        badge: "Optional",
-      },
-    ],
+    linesShown: 3,
   },
 ];
 
@@ -154,7 +132,9 @@ export default function WalkthroughDemo() {
         <div className="flex items-center gap-2.5">
           
           <span className="text-[15px] font-medium text-muted-foreground">
-            Interactive 40-second walk · 14 Kauri St, Ponsonby
+            Interactive 40-second walk
+            <span className="hidden sm:inline"> · </span>
+            <span className="block sm:inline">14 Kauri St, Ponsonby</span>
           </span>
         </div>
         <span className="tabular-money rounded-full bg-background px-3.5 py-1.5 text-[13px] font-medium text-foreground">
@@ -162,10 +142,10 @@ export default function WalkthroughDemo() {
         </span>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-12">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
         {/* Camera + Voice Frame */}
         <div className="relative overflow-hidden rounded-[26px] bg-zinc-950 text-white lg:col-span-7 lg:min-h-[440px]">
-          <div className="relative aspect-[16/11] w-full overflow-hidden sm:aspect-[16/10] lg:absolute lg:inset-0 lg:aspect-auto">
+          <div className="relative aspect-square w-full overflow-hidden sm:aspect-[16/10] lg:absolute lg:inset-0 lg:aspect-auto">
             <Image
               src={activeStep.photoUrl}
               alt={activeStep.stage}
@@ -202,7 +182,8 @@ export default function WalkthroughDemo() {
                   {activeStep.snappedCount}{" "}
                   {activeStep.snappedCount === 1 ? "room snapped" : "rooms snapped"}
                 </span>
-                <span>Single continuous recording</span>
+                <span className="sm:hidden">One recording</span>
+                <span className="hidden sm:inline">Single continuous recording</span>
               </div>
             </div>
           </div>
@@ -212,7 +193,7 @@ export default function WalkthroughDemo() {
         <div className="flex flex-col justify-between rounded-[26px] bg-background p-5 sm:p-6 lg:col-span-5">
           <div>
             <div className="flex items-start justify-between gap-2 border-b border-border pb-3">
-              <div>
+              <div className="min-w-0">
                 <p className="text-[13px] font-medium text-muted-foreground">
                   Kauri Coast Painters
                 </p>
@@ -223,39 +204,39 @@ export default function WalkthroughDemo() {
                   14 Kauri Street, Ponsonby
                 </p>
               </div>
-              <span className="rounded-full bg-secondary px-2.5 py-1 text-[12px] font-semibold text-secondary-foreground">
+              <span className="shrink-0 whitespace-nowrap rounded-full bg-secondary px-2.5 py-1 text-[12px] font-semibold text-secondary-foreground">
                 30% deposit
               </span>
             </div>
 
-            <div className="mt-3 space-y-2">
-              {activeStep.lines.length === 0 ? (
-                <p className="py-8 text-center text-[15px] text-muted-foreground">
+            {/* Every line keeps its place from the start, so the quote never changes height as the walk plays. */}
+            <div className="relative mt-3 flex flex-col gap-2">
+              {activeStep.linesShown === 0 && (
+                <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-[15px] text-muted-foreground">
                   Listening for first room dimensions and coats…
                 </p>
-              ) : (
-                activeStep.lines.map((line) => (
-                  <div
-                    key={line.label}
-                    className="flex items-start justify-between gap-2 rounded-2xl bg-card px-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-[14px] font-semibold text-foreground">
-                        {line.label}
-                      </p>
-                      <p className="text-[12px] text-muted-foreground">{line.metrics}</p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <span className="tabular-money block text-[15px] font-bold text-foreground">
-                        {line.price}
-                      </span>
-                      <span className="text-[11px] font-medium text-muted-foreground">
-                        {line.badge}
-                      </span>
-                    </div>
-                  </div>
-                ))
               )}
+              {QUOTE_LINES.map((line, index) => (
+                <div
+                  key={line.label}
+                  className={`flex items-start justify-between gap-3 rounded-2xl bg-card px-4 py-3 ${
+                    index < activeStep.linesShown ? "" : "invisible"
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-semibold text-foreground">{line.label}</p>
+                    <p className="text-[12px] text-muted-foreground">{line.metrics}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className="tabular-money block text-[15px] font-bold text-foreground">
+                      {line.price}
+                    </span>
+                    <span className="text-[11px] font-medium text-muted-foreground">
+                      {line.badge}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

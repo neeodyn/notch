@@ -81,19 +81,19 @@ export default function HomeownerAcceptBar({
           />
         ) : (
           <div className="flex items-center justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <p className="tabular-money text-[22px] font-bold leading-tight text-foreground">{formatMoney(total, currency)}</p>
               <p className="tabular-money text-[13px] text-muted-foreground">
                 {depositPct > 0 ? `${depositPct}% deposit (${formatMoney(depositAmount, currency)})` : "Incl. GST and selected options"}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
               {onDecline && (
-                <button type="button" disabled={submitting} onClick={() => setMode("decline")} className="min-h-[44px] rounded-xl px-3 text-[14px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground">
+                <button type="button" disabled={submitting} onClick={() => setMode("decline")} className="min-h-[44px] rounded-xl px-2.5 text-[14px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground sm:px-3">
                   Decline
                 </button>
               )}
-              <button type="button" onClick={() => setMode("accept")} className="flex h-14 items-center justify-center rounded-2xl bg-primary px-6 text-[17px] font-semibold text-primary-foreground transition-opacity hover:opacity-90">
+              <button type="button" onClick={() => setMode("accept")} className="flex h-14 items-center justify-center whitespace-nowrap rounded-2xl bg-primary px-5 text-[17px] font-semibold text-primary-foreground transition-opacity hover:opacity-90 sm:px-6">
                 Accept quote
               </button>
             </div>

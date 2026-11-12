@@ -8,6 +8,7 @@ import AppTopBar, { TopBarIcon } from "@/components/notch/AppTopBar";
 import AreaItemCard from "@/components/notch/AreaItemCard";
 import CheckAlertBanner from "@/components/notch/CheckAlertBanner";
 import ClientDetailsCard from "@/components/notch/ClientDetailsCard";
+import ConfirmDialog from "@/components/notch/ConfirmDialog";
 import SnapPhotoStrip from "@/components/notch/SnapPhotoStrip";
 import StatusPill from "@/components/notch/StatusPill";
 import UpgradeTrialSheet from "@/components/notch/UpgradeTrialSheet";
@@ -15,6 +16,8 @@ import VoiceEditDock from "@/components/notch/VoiceEditDock";
 import { calculateQuoteTotals, formatMoney } from "@/lib/pricing";
 import { listPhotoTargets, orderPhotosBySnap, resolvePhotoTarget } from "@/lib/photos";
 import { RESIDENTIAL_CONTRACT_THRESHOLD } from "@/lib/legal";
+import { describeSaveError } from "@/lib/saveErrors";
+import { shareQuoteLink } from "@/lib/shareQuote";
 import {
   addOrDeleteQuoteItemFn,
   attachAreaPhotoFn,
@@ -54,6 +57,7 @@ function CheckQuoteScreen() {
   const [applyingVoice, setApplyingVoice] = useState(false);
   const [sending, setSending] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [confirmUnpriced, setConfirmUnpriced] = useState(false);
 
   const currency = business?.currency || "NZD";
   const businessSettings = {
@@ -73,58 +77,79 @@ function CheckQuoteScreen() {
     depositPct: quote.deposit_pct || 0,
   });
 
+  const unpricedAreas = items.filter((it) => it.price == null || it.price_source === "none");
+
   function triggerFieldGlow(keys) {
     setHighlightedKeys(keys);
     window.setTimeout(() => setHighlightedKeys([]), 1100);
   }
 
+  // Saves a change and refreshes the screen. Resolves false when it didn't go
+  // through (usually no signal on site), after telling the painter so.
+  async function saveChange(action) {
+    try {
+      await action();
+      await router.invalidate({ sync: true });
+      return true;
+    } catch (err) {
+      toast.error(describeSaveError(err));
+      return false;
+    }
+  }
+
   async function handleSaveClientPatch(patch) {
-    await runUpdateDetails({ data: { quoteId: quote.id, patch } });
-    await router.invalidate({ sync: true });
-    toast.success("Client details saved");
+    const saved = await saveChange(() =>
+      runUpdateDetails({ data: { quoteId: quote.id, patch } })
+    );
+    if (saved) toast.success("Client details saved");
+    return saved;
   }
 
-  async function handleDismissUnclear(idx) {
+  function handleDismissUnclear(idx) {
     const nextUnclear = (quote.unclear || []).filter((_, i) => i !== idx);
-    await runUpdateDetails({
-      data: { quoteId: quote.id, patch: { unclear: nextUnclear } },
-    });
-    await router.invalidate({ sync: true });
+    return saveChange(() =>
+      runUpdateDetails({ data: { quoteId: quote.id, patch: { unclear: nextUnclear } } })
+    );
   }
 
-  async function handleUpdateItem(itemId, patch) {
-    await runUpdateItem({ data: { quoteId: quote.id, itemId, patch } });
-    await router.invalidate({ sync: true });
+  function handleUpdateItem(itemId, patch) {
+    return saveChange(() =>
+      runUpdateItem({ data: { quoteId: quote.id, itemId, patch } })
+    );
   }
 
   async function handleSplitOptionalCeiling(itemId) {
-    await runAddDeleteItem({
-      data: { quoteId: quote.id, itemId, action: "split_optional_ceiling" },
-    });
-    await router.invalidate({ sync: true });
-    toast("Ceiling split into an optional extra", {
-      action: { label: "Undo", onClick: () => handleUndo() },
-    });
+    const saved = await saveChange(() =>
+      runAddDeleteItem({
+        data: { quoteId: quote.id, itemId, action: "split_optional_ceiling" },
+      })
+    );
+    if (saved) {
+      toast("Ceiling split into an optional extra", {
+        action: { label: "Undo", onClick: () => handleUndo() },
+      });
+    }
   }
 
   async function handleDeleteItem(itemId) {
-    await runAddDeleteItem({
-      data: { quoteId: quote.id, itemId, action: "delete" },
-    });
-    await router.invalidate({ sync: true });
-    toast("Area removed", {
-      action: { label: "Undo", onClick: () => handleUndo() },
-    });
+    const saved = await saveChange(() =>
+      runAddDeleteItem({ data: { quoteId: quote.id, itemId, action: "delete" } })
+    );
+    if (saved) {
+      toast("Area removed", {
+        action: { label: "Undo", onClick: () => handleUndo() },
+      });
+    }
   }
 
-  async function handleAddArea() {
-    await runAddDeleteItem({ data: { quoteId: quote.id, action: "add" } });
-    await router.invalidate({ sync: true });
+  function handleAddArea() {
+    return saveChange(() =>
+      runAddDeleteItem({ data: { quoteId: quote.id, action: "add" } })
+    );
   }
 
-  async function handleMovePin(photoId, pin_x, pin_y) {
-    await runMovePin({ data: { photoId, pin_x, pin_y } });
-    await router.invalidate({ sync: true });
+  function handleMovePin(photoId, pin_x, pin_y) {
+    return saveChange(() => runMovePin({ data: { photoId, pin_x, pin_y } }));
   }
 
   async function handleAttachPhoto(itemId, areaNumber, fileUri) {
@@ -201,41 +226,52 @@ function CheckQuoteScreen() {
     }
   }
 
-  async function handleSendQuote() {
+  function handleSendQuote() {
     if (sending) return;
+    if (items.length === 0) {
+      toast.error("Add at least one room or area before sending.");
+      return;
+    }
+    if (business?.trial_expired) {
+      setUpgradeOpen(true);
+      return;
+    }
+    if (unpricedAreas.length > 0) {
+      setConfirmUnpriced(true);
+      return;
+    }
+    sendQuote();
+  }
+
+  async function sendQuote() {
     setSending(true);
     try {
+      // Share before anything else: iOS only opens the share sheet straight from
+      // a tap. The quote is marked Sent once the link has actually gone out.
+      const outcome = await shareQuoteLink({
+        url: `${window.location.origin}/q/${quote.public_token}`,
+        title: `${business?.name || "Painting"} Quote`,
+        text: `Here is your painting quote from ${business?.name || "our team"}:`,
+      });
+      if (outcome === "dismissed") return;
+      if (outcome === "failed") {
+        toast.error("Couldn't open sharing here. Use the link button to copy the quote link.");
+        return;
+      }
+
       const res = await runSendQuote({ data: { quoteId: quote.id } });
       if (res.blockedByTrial) {
         setUpgradeOpen(true);
         return;
       }
-
       await router.invalidate({ sync: true });
-      const shareUrl = `${window.location.origin}/q/${res.publicToken}`;
-      const shareText = `Here is your painting quote from ${business?.name || "our team"}:`;
-
-      if (navigator.share) {
-        await navigator
-          .share({
-            title: `${business?.name || "Painting"} Quote`,
-            text: shareText,
-            url: shareUrl,
-          })
-          .catch(() => {});
-      } else if (navigator.clipboard?.writeText) {
-        const copied = await navigator.clipboard
-          .writeText(shareUrl)
-          .then(() => true)
-          .catch(() => false);
-        toast.success(
-          copied ? "Quote link copied and marked Sent" : "Quote marked Sent"
-        );
-      } else {
-        toast.success("Quote marked Sent");
-      }
-    } catch (err) {
-      toast.error(err?.message || "Could not send quote");
+      toast.success(
+        outcome === "copied" ? "Quote link copied and marked Sent" : "Quote marked Sent"
+      );
+    } catch {
+      toast.error(
+        "Couldn't mark the quote as Sent. The link still works, and the quote updates once the homeowner opens it."
+      );
     } finally {
       setSending(false);
     }
@@ -405,7 +441,7 @@ function CheckQuoteScreen() {
           </p>
           <p className="tabular-money truncate text-[12px] text-muted-foreground">
             {totals.unpricedCount > 0
-              ? `${totals.unpricedCount} area needs your price`
+              ? `${totals.unpricedCount} ${totals.unpricedCount === 1 ? "area needs" : "areas need"} your price`
               : `Incl. ${totals.gstPctLabel}% GST (${formatMoney(totals.subtotalExclGst, currency)} excl.)`}
           </p>
         </div>
@@ -430,6 +466,25 @@ function CheckQuoteScreen() {
           </button>
         </div>
       </AppDock>
+
+      <ConfirmDialog
+        open={confirmUnpriced}
+        title={
+          unpricedAreas.length === 1
+            ? "1 area has no price yet"
+            : `${unpricedAreas.length} areas have no price yet`
+        }
+        description={`The homeowner will see “TBC” for ${unpricedAreas
+          .map((it) => it.name || `Area ${it.area_number}`)
+          .join(", ")}, and the total won't include ${unpricedAreas.length === 1 ? "it" : "them"}.`}
+        confirmLabel="Send anyway"
+        cancelLabel="Set prices first"
+        onConfirm={() => {
+          setConfirmUnpriced(false);
+          sendQuote();
+        }}
+        onCancel={() => setConfirmUnpriced(false)}
+      />
 
       <UpgradeTrialSheet open={upgradeOpen} onOpenChange={setUpgradeOpen} />
     </div>

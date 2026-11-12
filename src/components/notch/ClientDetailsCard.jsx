@@ -27,7 +27,7 @@ export default function ClientDetailsCard({ quote, highlightedKeys = [], onSaveP
 
   async function handleSave(e) {
     e.preventDefault();
-    await onSavePatch({
+    const saved = await onSavePatch({
       client_name: draft.client_name.trim(),
       client_phone: draft.client_phone.trim(),
       client_email: draft.client_email.trim(),
@@ -35,7 +35,7 @@ export default function ClientDetailsCard({ quote, highlightedKeys = [], onSaveP
       deposit_pct: Math.max(0, Math.min(100, Number(draft.deposit_pct) || 0)),
       notes: draft.notes.trim(),
     });
-    setEditing(false);
+    if (saved !== false) setEditing(false);
   }
 
   if (editing) {

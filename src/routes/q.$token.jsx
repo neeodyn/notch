@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { MapPin, PaintRoller, Phone, Printer } from "lucide-react";
+import { ChevronLeft, MapPin, PaintRoller, Phone, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Image } from "@/components/ui/image";
+import StartLink from "@/components/landing/StartLink";
 import HomeownerAcceptBar from "@/components/notch/HomeownerAcceptBar";
 import ProposalHeader from "@/components/proposal/ProposalHeader";
 import ProposalClient from "@/components/proposal/ProposalClient";
@@ -187,13 +188,10 @@ function PublicHomeownerQuotePage() {
   return (
     <div className="premium-proposal min-h-screen bg-background text-foreground">
       {isSample && (
-        <div className="proposal-sample-ribbon no-print px-4 py-3 text-center text-[13px] text-muted-foreground">
-          <span>
-            Sample Ponsonby quote — tick the optional hallway ceiling below to watch 15% GST and the total update live.{" "}
-          </span>
-          <Link to="/app" className="font-medium hover:underline">
-            Start your 7-day free trial
-          </Link>
+        <div className="proposal-sample-ribbon no-print">
+          <Link to="/" aria-label="Back to Notch"><ChevronLeft size={18} />Notch</Link>
+          <p>Sample quote. Try the optional extra below.</p>
+          <StartLink>Start free trial</StartLink>
         </div>
       )}
 

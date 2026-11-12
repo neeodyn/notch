@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, createFileRoute, useBlocker, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Camera, Check, RefreshCw, X } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import AudioWaveform from "@/components/notch/AudioWaveform";
+import ConfirmDialog from "@/components/notch/ConfirmDialog";
 import { clearLocalCapture, loadLocalCapture, saveLocalCapture } from "@/lib/captureStore";
+import { isConnectionError } from "@/lib/saveErrors";
 import { fillQuoteFromCaptureFn, transcribeCaptureFn } from "@/lib/server-fns";
 
 export const Route = createFileRoute("/_authed/app/q/$id/capture")({
@@ -14,6 +16,9 @@ export const Route = createFileRoute("/_authed/app/q/$id/capture")({
 
 const SAMPLE_WALK_TEXT =
   "Quote for Sarah Miller, 14 Kauri Street, Ponsonby, 021 555 0134. Lounge, five by four, stud two-four, walls and ceiling, two coats, eleven hundred. Hallway, eight by one-two, walls only, ceiling optional, four hundred. Thirty percent deposit.";
+
+const SAVED_WALK_NOTICE =
+  "A walk for this quote is saved on this phone but hasn't been uploaded yet.";
 
 function pickRecorderMime() {
   if (typeof window === "undefined" || !window.MediaRecorder) return "";
@@ -43,17 +48,24 @@ function CaptureScreen() {
   const [snaps, setSnaps] = useState([]);
   const [processingWord, setProcessingWord] = useState("");
   const [uploadError, setUploadError] = useState("");
-  const [hasSavedLocalRecovery, setHasSavedLocalRecovery] = useState(false);
+  // Bumped to start a fresh recording after a saved walk is discarded.
+  const [attempt, setAttempt] = useState(0);
+  const finishingRef = useRef(false);
+  const uploadingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     let timerId = null;
 
     async function initCapture() {
-      const existingLocal = await loadLocalCapture(quoteId).catch(() => null);
-      if (existingLocal && (existingLocal.audioBlob || existingLocal.manualTranscript)) {
-        setHasSavedLocalRecovery(true);
-        if (existingLocal.photos?.length) setSnaps(existingLocal.photos);
+      // A walk that never finished uploading comes first, so a new recording
+      // can't quietly overwrite it.
+      if (attempt === 0) {
+        const saved = await loadLocalCapture(quoteId).catch(() => null);
+        if (saved && (saved.audioBlob || saved.manualTranscript)) {
+          if (!cancelled) setUploadError(SAVED_WALK_NOTICE);
+          return;
+        }
       }
 
       try {
@@ -112,7 +124,26 @@ function CaptureScreen() {
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
     };
-  }, [quoteId]);
+  }, [quoteId, attempt]);
+
+  // Leaving mid-walk (the X, a back swipe, a reload) would throw the recording
+  // away, so ask first. Once Done is tapped the walk is saved and leaving is safe.
+  const walkAtRisk =
+    !processingWord &&
+    !uploadError &&
+    (fallbackMode
+      ? fallbackTranscript.trim().length > 0
+      : cameraReady && (elapsedS >= 5 || snaps.length > 0));
+  const walkAtRiskRef = useRef(false);
+  useEffect(() => {
+    walkAtRiskRef.current = walkAtRisk;
+  }, [walkAtRisk]);
+  const shouldAskBeforeLeaving = useCallback(() => walkAtRiskRef.current, []);
+  const leaveBlocker = useBlocker({
+    shouldBlockFn: shouldAskBeforeLeaving,
+    enableBeforeUnload: shouldAskBeforeLeaving,
+    withResolver: true,
+  });
 
   async function handleSnapVideoFrame() {
     const video = videoRef.current;
@@ -152,6 +183,8 @@ function CaptureScreen() {
   }
 
   async function runUploadAndPipeline(localData) {
+    if (uploadingRef.current) return;
+    uploadingRef.current = true;
     setUploadError("");
     try {
       let working = { ...localData };
@@ -224,13 +257,21 @@ function CaptureScreen() {
     } catch (err) {
       setProcessingWord("");
       setUploadError(
-        err?.message || "Upload interrupted. Your recording is safely saved on this device."
+        isConnectionError(err)
+          ? "No signal right now. Your walk is safe on this phone, so retry once you're back in range."
+          : err?.message || "Upload interrupted. Your recording is safely saved on this device."
       );
-      setHasSavedLocalRecovery(true);
+    } finally {
+      uploadingRef.current = false;
     }
   }
 
   async function handleDone() {
+    // One walk, one upload: a second tap must never start a second, empty one.
+    if (finishingRef.current) return;
+    finishingRef.current = true;
+    setProcessingWord("Saving your walk…");
+
     const durationS = Math.max(3, Math.round((Date.now() - startTimeRef.current) / 1000));
     let audioBlob = null;
     let audioMime = "audio/webm";
@@ -267,6 +308,23 @@ function CaptureScreen() {
     await runUploadAndPipeline(saved);
   }
 
+  async function handleRecordAgain() {
+    await clearLocalCapture(quoteId).catch(() => {});
+    finishingRef.current = false;
+    setSnaps([]);
+    setElapsedS(0);
+    setCameraReady(false);
+    setFallbackMode(false);
+    setFallbackTranscript("");
+    setUploadError("");
+    setAttempt((n) => n + 1);
+  }
+
+  function handleDiscardWalk() {
+    clearLocalCapture(quoteId).catch(() => {});
+    leaveBlocker.proceed?.();
+  }
+
   const mins = Math.floor(elapsedS / 60);
   const secs = String(elapsedS % 60).padStart(2, "0");
 
@@ -300,6 +358,13 @@ function CaptureScreen() {
             >
               Open manual quote editor
             </Link>
+            <button
+              type="button"
+              onClick={handleRecordAgain}
+              className="flex min-h-[44px] w-full items-center justify-center text-[15px] text-zinc-400 hover:text-white"
+            >
+              Discard it and record again
+            </button>
           </div>
         )}
       </div>
@@ -380,17 +445,6 @@ function CaptureScreen() {
               >
                 Load Ponsonby walk example
               </button>
-
-              {hasSavedLocalRecovery && (
-                <button
-                  type="button"
-                  onClick={handleRetrySaved}
-                  className="flex min-h-[40px] items-center gap-1.5 rounded-xl bg-white/10 px-3.5 text-[13px] font-semibold text-white"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  <span>Resume saved walk</span>
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -442,7 +496,7 @@ function CaptureScreen() {
           <button
             type="button"
             onClick={handleDone}
-            disabled={fallbackMode && !fallbackTranscript.trim()}
+            disabled={fallbackMode ? !fallbackTranscript.trim() : !cameraReady}
             className="flex h-14 min-w-[108px] items-center justify-center gap-1.5 rounded-2xl bg-primary px-5 text-[17px] font-semibold text-primary-foreground disabled:opacity-45"
           >
             <Check className="h-5 w-5" />
@@ -450,6 +504,25 @@ function CaptureScreen() {
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={leaveBlocker.status === "blocked"}
+        title="Discard this walk?"
+        description={
+          fallbackMode
+            ? "What you've typed hasn't been saved yet. Leave now and it's gone."
+            : `Your recording${
+                snaps.length > 0
+                  ? ` and ${snaps.length} ${snaps.length === 1 ? "photo" : "photos"}`
+                  : ""
+              } will be lost. Tap Done to save the walk instead.`
+        }
+        confirmLabel="Discard walk"
+        cancelLabel={fallbackMode ? "Keep writing" : "Keep recording"}
+        destructive
+        onConfirm={handleDiscardWalk}
+        onCancel={() => leaveBlocker.reset?.()}
+      />
     </div>
   );
 }

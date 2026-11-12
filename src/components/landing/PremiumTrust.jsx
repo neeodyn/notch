@@ -1,5 +1,5 @@
 import { ChevronRight } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import StartLink from "@/components/landing/StartLink";
 
 const safeguards = ["Your spoken price always comes first", "Outlier prices flagged against your rate card", "Recordings saved on your phone before upload", "Acceptance recorded with name, time and IP"];
 
@@ -10,7 +10,7 @@ export default function PremiumTrust() {
         <div className="section-heading !mb-0">
           <h2>Your reputation.<br /><span>In safe hands.</span></h2>
           <p className="section-description">Automation where it helps. Your judgement where it matters. Every quote is yours to review before it goes out.</p>
-          <Link to="/app" className="premium-link mt-3">Start quoting with confidence <ChevronRight size={18} /></Link>
+          <StartLink className="premium-link mt-3" trailing={<ChevronRight size={18} />}>Start quoting with confidence</StartLink>
         </div>
         <ul className="trust-list">{safeguards.map((text) => <li key={text}>{text}</li>)}</ul>
       </div>

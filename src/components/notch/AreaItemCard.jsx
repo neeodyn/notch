@@ -44,11 +44,11 @@ export default function AreaItemCard({
 
   async function savePrice() {
     const val = priceInput.trim() === "" ? null : Math.max(0, Number(priceInput));
-    await onUpdateItem(item.id, {
+    const saved = await onUpdateItem(item.id, {
       price: val,
       price_source: val == null ? "none" : "owner",
     });
-    setEditingPrice(false);
+    if (saved !== false) setEditingPrice(false);
   }
 
   function toggleSurface(surf) {

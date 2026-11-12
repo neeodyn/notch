@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import StartLink from "@/components/landing/StartLink";
 import { ChevronRight } from "lucide-react";
 import ScrollRevealText from "@/components/landing/ScrollRevealText";
 import CaptureVignette from "@/components/landing/vignettes/CaptureVignette";
@@ -25,7 +25,7 @@ export default function PremiumWorkflow() {
           </article>
         ))}
       </div>
-      <Link to="/app" className="premium-link mt-8">Make your next quote a better one <ChevronRight size={18} /></Link>
+      <StartLink className="premium-link mt-8" trailing={<ChevronRight size={18} />}>Make your next quote a better one</StartLink>
     </section>
   );
 }
