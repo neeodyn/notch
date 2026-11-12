@@ -78,7 +78,7 @@ export default function VoiceEditDock({ onApplyVoiceEdit, isApplying }) {
   }
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-24 z-20 flex flex-col items-end px-4 sm:px-6">
+    <div className="above-dock pointer-events-none fixed inset-x-0 z-20 flex flex-col items-end px-4 sm:px-6">
       <div className="pointer-events-auto mx-auto flex w-full max-w-2xl flex-col items-end gap-2">
         {showTypeBox && !recording && (
           <form
@@ -153,10 +153,10 @@ export default function VoiceEditDock({ onApplyVoiceEdit, isApplying }) {
               disabled={isApplying}
               onClick={startMic}
               aria-label="Say a change"
-              className="voice-glass-control flex h-[88px] w-[88px] flex-col items-center justify-center gap-1 rounded-full bg-primary text-primary-foreground shadow-xl transition-transform duration-200 active:scale-95 disabled:opacity-60"
+              className="voice-glass-control flex h-[68px] w-[68px] flex-col items-center justify-center gap-0.5 rounded-full bg-primary text-primary-foreground shadow-xl transition-transform duration-200 active:scale-95 disabled:opacity-60"
             >
-              <Mic className="h-7 w-7" />
-              <span className="text-[11px] font-semibold tracking-tight">
+              <Mic className="h-6 w-6" />
+              <span className="text-[10px] font-semibold tracking-tight">
                 {isApplying ? "Updating…" : "Say change"}
               </span>
             </button>

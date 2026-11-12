@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
 import { toast } from "sonner";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
+import AppDock from "@/components/notch/AppDock";
+import AppTopBar from "@/components/notch/AppTopBar";
 import PriceBookEditor from "@/components/notch/PriceBookEditor";
 import { getAppBootstrap, saveBusinessProfile } from "@/lib/server-fns";
 import { DEFAULT_PAINTING_TERMS } from "@/lib/legal";
@@ -86,32 +88,26 @@ function SetupScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-28 text-foreground">
-      <header className="mx-auto flex max-w-2xl items-center justify-between px-4 pt-5 sm:px-5">
-        <Link
-          to="/app"
-          className="flex min-h-[44px] items-center gap-1.5 rounded-xl px-2 text-[16px] font-medium text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-5 w-5" />
-          <span>Quotes</span>
-        </Link>
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => handleSubmit(true)}
-          className="min-h-[44px] rounded-xl px-3 text-[15px] font-semibold text-primary"
-        >
-          Skip price book
-        </button>
-      </header>
+    <div className="min-h-dvh bg-background pb-32 text-foreground">
+      <AppTopBar
+        title="Setup"
+        actions={
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => handleSubmit(true)}
+            className="flex min-h-11 items-center rounded-xl px-2.5 text-[14px] font-semibold text-primary disabled:opacity-50"
+          >
+            Skip price book
+          </button>
+        }
+      />
 
-      <main className="mx-auto mt-3 max-w-2xl space-y-6 px-4 sm:px-5">
-        <div>
-          <h1 className="large-title text-foreground">Your painting business</h1>
-          <p className="mt-1 text-[16px] text-muted-foreground">
-            Shown on every homeowner quote. Everything here can be skipped or changed later.
-          </p>
-        </div>
+      <main className="mx-auto mt-4 max-w-2xl space-y-6 px-4 sm:px-5">
+        <p className="text-[16px] leading-snug text-muted-foreground">
+          Your painting business details, shown on every homeowner quote. Everything here can be
+          skipped or changed later.
+        </p>
 
         {/* Company & GST Card */}
         <section className="apple-surface space-y-4 rounded-[20px] border border-border bg-card p-5">
@@ -264,18 +260,16 @@ function SetupScreen() {
         </p>
       </main>
 
-      <div className="glass-dock fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-xl safe-bottom">
-        <div className="mx-auto max-w-2xl px-4 pt-3 sm:px-5">
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => handleSubmit(false)}
-            className="flex h-14 w-full items-center justify-center rounded-2xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-60"
-          >
-            {saving ? "Saving…" : "Save and go to quotes"}
-          </button>
-        </div>
-      </div>
+      <AppDock>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => handleSubmit(false)}
+          className="flex h-14 w-full items-center justify-center rounded-2xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-60"
+        >
+          {saving ? "Saving…" : "Save and go to quotes"}
+        </button>
+      </AppDock>
     </div>
   );
 }

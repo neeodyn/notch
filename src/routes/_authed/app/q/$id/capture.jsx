@@ -272,7 +272,7 @@ function CaptureScreen() {
 
   if (processingWord || uploadError) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 px-6 text-center text-white">
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-zinc-950 px-6 text-center text-white">
         {processingWord ? (
           <div className="space-y-3">
             <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-white" />
@@ -307,7 +307,7 @@ function CaptureScreen() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col justify-between overflow-hidden bg-zinc-950 text-white">
+    <div className="relative flex min-h-dvh flex-col justify-between overflow-hidden bg-zinc-950 text-white">
       {!fallbackMode && (
         <video
           ref={videoRef}
