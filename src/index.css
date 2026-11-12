@@ -185,15 +185,10 @@
 .premium-footer { padding-top: clamp(88px, 11vw, 150px); padding-bottom: 40px; }
 
 /* ---------- Quoting app ---------- */
-.app-navigation { display: flex; max-width: 780px; margin: 0 auto; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px 2px; }
-.app-nav-link { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 14px; border-radius: 980px; font-size: 14px; font-weight: 500; color: hsl(var(--muted-foreground)); }
-.app-nav-link:hover { color: hsl(var(--foreground)); }
-.app-nav-active { background: hsl(var(--card)); color: hsl(var(--foreground)); }
-.workspace-header { display: flex; align-items: flex-end; justify-content: space-between; max-width: 780px; margin: 30px auto 0; padding: 0 20px; }
-.workspace-settings { display: flex; width: 44px; height: 44px; border-radius: 50%; align-items: center; justify-content: center; background: hsl(var(--card)); color: hsl(var(--foreground)); }
+/* Floating action (e.g. the "Say change" mic) sits just above the bottom dock. */
+.above-dock { bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); }
 .workspace-overview { padding: 28px; border-radius: 28px; background: hsl(var(--ink-surface)); color: hsl(var(--ink-text)); }
 .premium-app .apple-surface { border-radius: 24px; }
-@media (min-width: 1024px) { .premium-app main, .premium-app header > div, .premium-app .glass-dock > div { max-width: 780px; } }
 input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid hsl(var(--primary) / .5); outline-offset: 2px; }
 button:focus-visible, a:focus-visible, label:has(input:focus-visible) { outline: 2px solid hsl(var(--primary)); outline-offset: 3px; }
 
@@ -253,9 +248,6 @@ button:focus-visible, a:focus-visible, label:has(input:focus-visible) { outline:
   .bento-visual { padding: 28px 24px 0; }
   .walkthrough-panel { border-radius: 26px; }
   .premium-plan { padding: 28px 24px; border-radius: 26px; }
-  .app-navigation { padding: 10px 16px 0; }
-  .app-nav-link { padding: 0 11px; }
-  .workspace-header { margin-top: 22px; padding: 0 16px; }
   .workspace-overview { padding: 22px; border-radius: 24px; }
   .large-title { font-size: 34px; }
   .proposal-gallery { gap: 10px; }

@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Link, createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, ExternalLink, Link2, Mic, Plus, RotateCcw, Send } from "lucide-react";
+import { ExternalLink, Link2, Mic, Plus, RotateCcw, Send } from "lucide-react";
 import { toast } from "sonner";
+import AppDock from "@/components/notch/AppDock";
+import AppTopBar, { TopBarIcon } from "@/components/notch/AppTopBar";
 import AreaItemCard from "@/components/notch/AreaItemCard";
 import CheckAlertBanner from "@/components/notch/CheckAlertBanner";
 import ClientDetailsCard from "@/components/notch/ClientDetailsCard";
@@ -240,53 +242,38 @@ function CheckQuoteScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-48 text-foreground">
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur-xl">
-        <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4 sm:px-5">
-          <Link
-            to="/app"
-            className="flex min-h-[44px] items-center gap-1.5 text-[16px] font-medium text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-5 w-5" />
-            <span>Quotes</span>
-          </Link>
-
-          <div className="flex items-center gap-1">
+    <div className="min-h-dvh bg-background pb-52 text-foreground">
+      <AppTopBar
+        title="Check quote"
+        actions={
+          <>
             {canUndo && (
-              <button
-                type="button"
-                onClick={() => handleUndo()}
-                className="flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-[14px] font-semibold text-foreground hover:bg-secondary"
-              >
-                <RotateCcw className="h-4 w-4" />
-                <span>Undo</span>
-              </button>
+              <TopBarIcon label="Undo last change" onClick={() => handleUndo()}>
+                <RotateCcw className="h-5 w-5" />
+              </TopBarIcon>
             )}
-            <Link
-              to="/app/q/$id/capture"
-              params={{ id: quote.id }}
-              className="flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-[14px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
-            >
-              <Mic className="h-4 w-4" />
-              <span>Re-walk</span>
-            </Link>
-            <Link
+            <TopBarIcon
+              label="Preview homeowner quote"
               to="/q/$token"
               params={{ token: quote.public_token }}
-              className="flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-[14px] font-medium text-primary hover:bg-accent"
             >
-              <span>Preview</span>
-              <ExternalLink className="h-4 w-4" />
-            </Link>
-          </div>
-        </div>
-      </header>
+              <ExternalLink className="h-5 w-5" />
+            </TopBarIcon>
+          </>
+        }
+      />
 
-      <main className="mx-auto mt-5 max-w-2xl space-y-5 px-4 sm:px-5">
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="large-title text-foreground">Check quote</h1>
+      <main className="mx-auto mt-4 max-w-2xl space-y-5 px-4 sm:px-5">
+        <div className="flex items-center justify-between gap-3">
           <StatusPill status={quote.status} />
+          <Link
+            to="/app/q/$id/capture"
+            params={{ id: quote.id }}
+            className="flex min-h-11 items-center gap-1.5 rounded-full bg-card px-3.5 text-[14px] font-semibold text-foreground"
+          >
+            <Mic className="h-4 w-4" />
+            <span>Re-walk the house</span>
+          </Link>
         </div>
 
         {/* Amber Check These Banner */}
@@ -411,41 +398,38 @@ function CheckQuoteScreen() {
         isApplying={applyingVoice}
       />
 
-      {/* Sticky Total + Send Bar */}
-      <div className="glass-dock fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 backdrop-blur-xl safe-bottom">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
-          <div>
-            <p className="tabular-money text-[22px] font-bold leading-tight text-foreground">
-              {formatMoney(totals.totalInclGst, currency)}
-            </p>
-            <p className="tabular-money text-[12px] text-muted-foreground">
-              {totals.unpricedCount > 0
-                ? `${totals.unpricedCount} area needs your price`
-                : `Incl. ${totals.gstPctLabel}% GST (${formatMoney(totals.subtotalExclGst, currency)} excl.)`}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleCopyShareLink}
-              aria-label="Copy homeowner quote link"
-              className="flex h-14 w-12 items-center justify-center rounded-2xl border border-border bg-background text-foreground hover:bg-secondary"
-            >
-              <Link2 className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              disabled={sending}
-              onClick={handleSendQuote}
-              className="flex h-14 min-w-[148px] items-center justify-center gap-2 rounded-2xl bg-primary px-6 text-[17px] font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              <Send className="h-5 w-5" />
-              <span>{sending ? "Sending…" : "Send quote"}</span>
-            </button>
-          </div>
+      <AppDock>
+        <div className="min-w-0">
+          <p className="tabular-money truncate text-[21px] font-bold leading-tight text-foreground">
+            {formatMoney(totals.totalInclGst, currency)}
+          </p>
+          <p className="tabular-money truncate text-[12px] text-muted-foreground">
+            {totals.unpricedCount > 0
+              ? `${totals.unpricedCount} area needs your price`
+              : `Incl. ${totals.gstPctLabel}% GST (${formatMoney(totals.subtotalExclGst, currency)} excl.)`}
+          </p>
         </div>
-      </div>
+
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={handleCopyShareLink}
+            aria-label="Copy homeowner quote link"
+            className="flex h-12 w-11 items-center justify-center rounded-2xl border border-border bg-background text-foreground hover:bg-secondary"
+          >
+            <Link2 className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            disabled={sending}
+            onClick={handleSendQuote}
+            className="flex h-12 min-w-[132px] items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-[16px] font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            <Send className="h-5 w-5" />
+            <span>{sending ? "Sending…" : "Send quote"}</span>
+          </button>
+        </div>
+      </AppDock>
 
       <UpgradeTrialSheet open={upgradeOpen} onOpenChange={setUpgradeOpen} />
     </div>

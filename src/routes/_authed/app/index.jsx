@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Plus, Search, Settings, SlidersHorizontal } from "lucide-react";
+import { Plus, Search, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
+import AppDock from "@/components/notch/AppDock";
 import QuoteListCard from "@/components/notch/QuoteListCard";
 import WorkspaceHeader from "@/components/notch/WorkspaceHeader";
 import WorkspaceOverview from "@/components/notch/WorkspaceOverview";
@@ -87,7 +88,7 @@ function QuotesListScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-32 text-foreground">
+    <div className="min-h-dvh bg-background pb-32 text-foreground">
       <WorkspaceHeader businessName={business?.name} />
 
       <main className="mx-auto mt-5 max-w-2xl space-y-5 px-4 sm:px-5">
@@ -175,20 +176,17 @@ function QuotesListScreen() {
         </section>
       </main>
 
-      {/* Sticky bottom New Quote button */}
-      <div className="glass-dock fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-xl safe-bottom">
-        <div className="mx-auto max-w-2xl px-4 pt-3 sm:px-5">
-          <button
-            type="button"
-            disabled={creating}
-            onClick={handleNewQuote}
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-[17px] font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90 disabled:opacity-60"
-          >
-            <Plus className="h-5 w-5" />
-            <span>{creating ? "Opening camera…" : "New quote"}</span>
-          </button>
-        </div>
-      </div>
+      <AppDock>
+        <button
+          type="button"
+          disabled={creating}
+          onClick={handleNewQuote}
+          className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-[17px] font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90 disabled:opacity-60"
+        >
+          <Plus className="h-5 w-5" />
+          <span>{creating ? "Opening camera…" : "New quote"}</span>
+        </button>
+      </AppDock>
     </div>
   );
 }

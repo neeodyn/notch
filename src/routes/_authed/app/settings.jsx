@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Check, LogOut, Moon, Sun, Upload } from "lucide-react";
+import { Check, LogOut, Moon, Sun, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Image } from "@/components/ui/image";
+import AppDock from "@/components/notch/AppDock";
+import AppTopBar, { TopBarIcon } from "@/components/notch/AppTopBar";
 import PriceBookEditor from "@/components/notch/PriceBookEditor";
 import { getAppBootstrap, saveBusinessProfile } from "@/lib/server-fns";
 import { DEFAULT_PAINTING_TERMS } from "@/lib/legal";
@@ -104,31 +106,23 @@ function SettingsScreen() {
   const isPaid = business?.plan === "active" || business?.plan === "founding";
 
   return (
-    <div className="min-h-screen bg-background pb-28 text-foreground">
-      <header className="mx-auto flex max-w-2xl items-center justify-between px-4 pt-5 sm:px-5">
-        <Link
-          to="/app"
-          className="flex min-h-[44px] items-center gap-1.5 rounded-xl px-2 text-[16px] font-medium text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-5 w-5" />
-          <span>Quotes</span>
-        </Link>
-
-        <button
-          type="button"
-          onClick={toggleDark}
-          className="flex min-h-[44px] items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-[14px] font-medium text-foreground"
-        >
-          {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          <span>{dark ? "Light mode" : "Dark mode"}</span>
-        </button>
-      </header>
+    <div className="min-h-dvh bg-background pb-32 text-foreground">
+      <AppTopBar
+        title="Settings"
+        actions={
+          <TopBarIcon
+            label={dark ? "Switch to light mode" : "Switch to dark mode"}
+            onClick={toggleDark}
+          >
+            {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </TopBarIcon>
+        }
+      />
 
       <form
         onSubmit={handleSave}
-        className="mx-auto mt-3 max-w-2xl space-y-6 px-4 sm:px-5"
+        className="mx-auto mt-4 max-w-2xl space-y-6 px-4 sm:px-5"
       >
-        <h1 className="large-title text-foreground">Settings</h1>
 
         {/* Plans & 7-Day Trial Card */}
         <section className="apple-surface space-y-4 rounded-[20px] border border-border bg-card p-5">
@@ -411,17 +405,15 @@ function SettingsScreen() {
           </button>
         </div>
 
-        <div className="glass-dock fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-xl safe-bottom">
-          <div className="mx-auto max-w-2xl px-4 pt-3 sm:px-5">
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex h-14 w-full items-center justify-center rounded-2xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-60"
-            >
-              {saving ? "Saving…" : "Save settings"}
-            </button>
-          </div>
-        </div>
+        <AppDock>
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex h-14 w-full items-center justify-center rounded-2xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-60"
+          >
+            {saving ? "Saving…" : "Save settings"}
+          </button>
+        </AppDock>
       </form>
     </div>
   );
