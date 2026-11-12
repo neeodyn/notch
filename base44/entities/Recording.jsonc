@@ -1,0 +1,106 @@
+{
+  "name": "Recording",
+  "type": "object",
+  "properties": {
+    "quote_id": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "capture",
+        "edit"
+      ],
+      "enumColors": [
+        "blue",
+        "purple"
+      ],
+      "default": "capture"
+    },
+    "file_uri": {
+      "type": "string"
+    },
+    "duration_s": {
+      "type": "number"
+    },
+    "transcript": {
+      "type": "string"
+    },
+    "segments": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "uploaded",
+        "transcribed",
+        "processed",
+        "failed"
+      ],
+      "enumColors": [
+        "gray",
+        "blue",
+        "green",
+        "red"
+      ],
+      "default": "uploaded"
+    }
+  },
+  "required": [
+    "quote_id",
+    "kind"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

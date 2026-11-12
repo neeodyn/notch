@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary";
 import { NotFound } from "@/components/NotFound";
@@ -7,18 +8,21 @@ import { Base44Scripts } from "base44:document";
 import appCss from "@/index.css?url";
 
 export const Route = createRootRoute({
-  // Per-page <title>/meta come from each route's head(); this is the shared base.
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Base44 App" },
-      { name: "description", content: "A full-stack Base44 app built with TanStack Start." },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { title: "Notch — Talk the yard. Send the quote." },
+      {
+        name: "description",
+        content: "Walk the yard talking and snap each tree. One recording writes up the whole tree service quote.",
+      },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "Notch" },
+      { name: "theme-color", content: "#1B4332" },
     ],
-    // No icon link: the platform adds the app's logo when serving.
-    links: [
-      { rel: "stylesheet", href: appCss },
-    ],
+    links: [{ rel: "stylesheet", href: appCss }],
   }),
   errorComponent: DefaultCatchBoundary,
   notFoundComponent: () => <NotFound />,
@@ -27,22 +31,27 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
+  useEffect(() => {
+    const stored = window.localStorage.getItem("notch_theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const isDark = stored ? stored === "dark" : prefersDark;
+    document.documentElement.classList.toggle("dark", isDark);
+  }, []);
+
   return (
     <AuthProvider>
       <Outlet />
-      <Toaster />
+      <Toaster position="top-center" />
     </AuthProvider>
   );
 }
 
-// The document. There is no index.html: the server renders <html> from here.
 function RootDocument({ children }) {
   return (
     <html lang="en">
       <head>
         <HeadContent />
       </head>
-      {/* data-react-root: the builder's preview bridge looks for #root and falls back to this. */}
       <body data-react-root="true">
         {children}
         <Base44Scripts />

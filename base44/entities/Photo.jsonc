@@ -1,0 +1,84 @@
+{
+  "name": "Photo",
+  "type": "object",
+  "properties": {
+    "quote_id": {
+      "type": "string"
+    },
+    "item_id": {
+      "type": "string"
+    },
+    "tree_number": {
+      "type": "number"
+    },
+    "file_uri": {
+      "type": "string",
+      "description": "Private storage file URI"
+    },
+    "taken_at_s": {
+      "type": "number"
+    },
+    "pin_x": {
+      "type": "number",
+      "default": 0.5
+    },
+    "pin_y": {
+      "type": "number",
+      "default": 0.4
+    }
+  },
+  "required": [
+    "quote_id",
+    "file_uri"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

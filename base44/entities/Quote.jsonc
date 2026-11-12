@@ -1,0 +1,152 @@
+{
+  "name": "Quote",
+  "type": "object",
+  "properties": {
+    "business_id": {
+      "type": "string"
+    },
+    "client_name": {
+      "type": "string"
+    },
+    "client_phone": {
+      "type": "string"
+    },
+    "client_email": {
+      "type": "string"
+    },
+    "address": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "sent",
+        "viewed",
+        "accepted",
+        "declined"
+      ],
+      "enumColors": [
+        "gray",
+        "gray",
+        "blue",
+        "green",
+        "red"
+      ],
+      "default": "draft"
+    },
+    "deposit_pct": {
+      "type": "number",
+      "default": 0
+    },
+    "notes": {
+      "type": "string"
+    },
+    "unclear": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "public_token": {
+      "type": "string",
+      "description": "Unique 24+ character random public share token"
+    },
+    "subtotal": {
+      "type": "number",
+      "default": 0
+    },
+    "tax_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "total": {
+      "type": "number",
+      "default": 0
+    },
+    "deposit_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "selected_optional_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sent_at": {
+      "type": "string"
+    },
+    "viewed_at": {
+      "type": "string"
+    },
+    "accepted_at": {
+      "type": "string"
+    },
+    "accepted_name": {
+      "type": "string"
+    },
+    "accepted_ip": {
+      "type": "string"
+    },
+    "accepted_user_agent": {
+      "type": "string"
+    },
+    "declined_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "public_token"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

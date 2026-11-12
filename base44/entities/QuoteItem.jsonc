@@ -1,0 +1,178 @@
+{
+  "name": "QuoteItem",
+  "type": "object",
+  "properties": {
+    "quote_id": {
+      "type": "string"
+    },
+    "tree_number": {
+      "type": "number"
+    },
+    "label": {
+      "type": "string"
+    },
+    "species": {
+      "type": "string"
+    },
+    "height_ft": {
+      "type": "number"
+    },
+    "size_class": {
+      "type": "string",
+      "enum": [
+        "small",
+        "medium",
+        "large",
+        "xl"
+      ],
+      "enumColors": [
+        "green",
+        "blue",
+        "yellow",
+        "purple"
+      ]
+    },
+    "work": {
+      "type": "string",
+      "enum": [
+        "remove",
+        "trim",
+        "crown_reduce",
+        "deadwood",
+        "stump_grind"
+      ],
+      "enumColors": [
+        "red",
+        "green",
+        "blue",
+        "yellow",
+        "purple"
+      ]
+    },
+    "hazards": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stump": {
+      "type": "string",
+      "enum": [
+        "grind",
+        "optional",
+        "leave"
+      ],
+      "enumColors": [
+        "green",
+        "yellow",
+        "gray"
+      ],
+      "default": "leave"
+    },
+    "haul": {
+      "type": "boolean",
+      "default": true
+    },
+    "optional": {
+      "type": "boolean",
+      "default": false
+    },
+    "is_stump_line": {
+      "type": "boolean",
+      "default": false
+    },
+    "needs_owner_price": {
+      "type": "boolean",
+      "default": false
+    },
+    "spoken_price": {
+      "type": "number"
+    },
+    "price": {
+      "type": "number"
+    },
+    "price_book_estimate": {
+      "type": "number"
+    },
+    "price_source": {
+      "type": "string",
+      "enum": [
+        "spoken",
+        "price_book",
+        "owner",
+        "none"
+      ],
+      "enumColors": [
+        "green",
+        "blue",
+        "purple",
+        "yellow"
+      ],
+      "default": "none"
+    },
+    "flagged": {
+      "type": "boolean",
+      "default": false
+    },
+    "customer_description": {
+      "type": "string"
+    },
+    "start_segment": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "quote_id",
+    "tree_number"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
