@@ -418,13 +418,13 @@ function CaptureScreen() {
           <div className="space-y-4 rounded-[22px] border border-white/15 bg-zinc-900 p-5 sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[12px] font-semibold uppercase tracking-[0.05em] text-emerald-400">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.05em] text-amber-300">
                   Camera or microphone unavailable
                 </p>
                 <h1 className="mt-1 text-[22px] font-bold">Describe the property walk</h1>
                 <p className="mt-1 text-[14px] text-zinc-300">
-                  On an iPhone on site, your rear camera and mic stream full screen. Paste or type a walk-through below
-                  to test automatic m² and GST quoting.
+                  Allow camera and microphone access to record on site. Or type the walk below, and the rooms are
+                  measured, priced and totalled with GST the same way.
                 </p>
               </div>
             </div>

@@ -109,7 +109,7 @@ export default function VoiceEditDock({ onApplyVoiceEdit, isApplying }) {
                   key={ex}
                   type="button"
                   onClick={() => setTypedText(ex)}
-                  className="rounded-lg bg-secondary px-2.5 py-1 text-[12px] font-medium text-muted-foreground hover:text-foreground"
+                  className="min-h-9 rounded-lg bg-secondary px-3 text-[13px] font-medium text-muted-foreground hover:text-foreground"
                 >
                   {ex}
                 </button>

@@ -4,13 +4,14 @@ import { ChevronRight, Link2, MessageSquare, FileText } from "lucide-react";
 import { toast } from "sonner";
 import StatusPill from "@/components/notch/StatusPill";
 import { formatMoney } from "@/lib/pricing";
+import { formatNzShortDate, parseUtc } from "@/lib/legal";
 
 const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
 
 export function isEligibleForFollowUp(quote, nowMs) {
   if (!quote || quote.status !== "viewed" || quote.accepted_at) return false;
   if (!quote.viewed_at) return false;
-  const viewedMs = Date.parse(quote.viewed_at);
+  const viewedMs = parseUtc(quote.viewed_at);
   if (!Number.isFinite(viewedMs)) return false;
   return nowMs - viewedMs >= FORTY_EIGHT_HOURS_MS;
 }
@@ -19,13 +20,7 @@ export default function QuoteListCard({ quote, currency = "NZD", nowMs, onFollow
   const [loadingSms, setLoadingSms] = useState(false);
   const showFollowUp = nowMs ? isEligibleForFollowUp(quote, nowMs) : false;
 
-  const formattedDate = quote.created_date
-    ? new Date(quote.created_date).toLocaleDateString("en-NZ", {
-        day: "numeric",
-        month: "short",
-        timeZone: "UTC",
-      })
-    : "";
+  const formattedDate = formatNzShortDate(quote.created_date);
 
   const displayTotal = Number(quote.total_incl_gst ?? quote.total) || 0;
 

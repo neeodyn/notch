@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Link, createFileRoute, notFound, useRouter } from "@tanstack/react-router";
+import { Link, createFileRoute, notFound, useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ExternalLink, Link2, Mic, Plus, RotateCcw, Send } from "lucide-react";
+import { ExternalLink, Link2, Mic, Plus, RotateCcw, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import AppDock from "@/components/notch/AppDock";
 import AppTopBar, { TopBarIcon } from "@/components/notch/AppTopBar";
@@ -16,11 +16,13 @@ import VoiceEditDock from "@/components/notch/VoiceEditDock";
 import { calculateQuoteTotals, formatMoney } from "@/lib/pricing";
 import { listPhotoTargets, orderPhotosBySnap, resolvePhotoTarget } from "@/lib/photos";
 import { RESIDENTIAL_CONTRACT_THRESHOLD } from "@/lib/legal";
+import { clearLocalCapture } from "@/lib/captureStore";
 import { describeSaveError } from "@/lib/saveErrors";
 import { shareQuoteLink } from "@/lib/shareQuote";
 import {
   addOrDeleteQuoteItemFn,
   attachAreaPhotoFn,
+  deleteDraftQuoteFn,
   getQuoteWorkspace,
   markQuoteSentFn,
   undoQuoteChangeFn,
@@ -52,12 +54,15 @@ function CheckQuoteScreen() {
   const runVoiceEdit = useServerFn(voiceEditQuoteFn);
   const runUndo = useServerFn(undoQuoteChangeFn);
   const runSendQuote = useServerFn(markQuoteSentFn);
+  const runDeleteDraft = useServerFn(deleteDraftQuoteFn);
+  const navigate = useNavigate();
 
   const [highlightedKeys, setHighlightedKeys] = useState([]);
   const [applyingVoice, setApplyingVoice] = useState(false);
   const [sending, setSending] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [confirmUnpriced, setConfirmUnpriced] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const currency = business?.currency || "NZD";
   const businessSettings = {
@@ -172,7 +177,7 @@ function CheckQuoteScreen() {
       await router.invalidate({ sync: true });
       toast.success(`Photo ${photo.snap_number} moved to ${target.name}`);
     } catch (err) {
-      toast.error(err?.message || "Could not move photo");
+      toast.error(describeSaveError(err, err?.message || "Could not move photo"));
     }
   }
 
@@ -182,7 +187,7 @@ function CheckQuoteScreen() {
       await router.invalidate({ sync: true });
       toast.success("Change undone");
     } catch (err) {
-      toast.error(err?.message || "Nothing to undo");
+      toast.error(describeSaveError(err, err?.message || "Nothing to undo"));
     }
   }
 
@@ -209,7 +214,7 @@ function CheckQuoteScreen() {
         },
       });
     } catch (err) {
-      toast.error(err?.message || "Could not apply change");
+      toast.error(describeSaveError(err, err?.message || "Could not apply change"));
     } finally {
       setApplyingVoice(false);
     }
@@ -274,6 +279,18 @@ function CheckQuoteScreen() {
       );
     } finally {
       setSending(false);
+    }
+  }
+
+  async function handleDeleteDraft() {
+    setConfirmDelete(false);
+    try {
+      await runDeleteDraft({ data: { quoteId: quote.id } });
+      clearLocalCapture(quote.id).catch(() => {});
+      toast.success("Draft deleted");
+      await navigate({ to: "/app" });
+    } catch (err) {
+      toast.error(describeSaveError(err, "Couldn't delete this draft. Please try again."));
     }
   }
 
@@ -426,6 +443,19 @@ function CheckQuoteScreen() {
             </p>
           )}
         </section>
+
+        {quote.status === "draft" && (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-[15px] font-semibold text-destructive hover:bg-secondary"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span>Delete this draft</span>
+            </button>
+          </div>
+        )}
       </main>
 
       {/* Floating 88px "Say a change" Mic */}
@@ -462,7 +492,7 @@ function CheckQuoteScreen() {
             className="flex h-12 min-w-[132px] items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-[16px] font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             <Send className="h-5 w-5" />
-            <span>{sending ? "Sending…" : "Send quote"}</span>
+            <span>{sending ? "Sending…" : quote.status === "draft" ? "Send quote" : "Send again"}</span>
           </button>
         </div>
       </AppDock>
@@ -484,6 +514,17 @@ function CheckQuoteScreen() {
           sendQuote();
         }}
         onCancel={() => setConfirmUnpriced(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete this draft?"
+        description="The rooms, photos and recording on this draft will be removed. This can't be undone."
+        confirmLabel="Delete draft"
+        cancelLabel="Keep draft"
+        destructive
+        onConfirm={handleDeleteDraft}
+        onCancel={() => setConfirmDelete(false)}
       />
 
       <UpgradeTrialSheet open={upgradeOpen} onOpenChange={setUpgradeOpen} />

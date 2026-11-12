@@ -8,7 +8,7 @@ function Word({ children, progress, range }) {
 
 export default function ScrollRevealText({ text, className }) {
   const ref = useRef(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start 0.9", "end 0.55"] });
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start 0.9", "end 0.8"] });
   const words = text.split(" ");
   return (
     <p ref={ref} className={className}>

@@ -939,6 +939,27 @@ export const generateFollowUpFn = createServerFn({ method: "POST" })
     };
   });
 
+/** Removes a draft that was never sent, with everything recorded on it. */
+export const deleteDraftQuoteFn = createServerFn({ method: "POST" })
+  .middleware([requireUser])
+  .inputValidator((input) => SendQuoteSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const base44 = context.getBase44();
+    const quote = await base44.entities.Quote.get(data.quoteId);
+    if (quote.created_by_id !== context.user.id) {
+      throw new Error("You can only delete your own quotes.");
+    }
+    if (quote.status !== "draft") {
+      throw new Error("Only a draft that hasn't been sent can be deleted.");
+    }
+
+    for (const entity of ["QuoteItem", "Photo", "QuoteVersion", "QuoteEvent", "Recording"]) {
+      await base44.entities[entity].deleteMany({ quote_id: quote.id });
+    }
+    await base44.entities.Quote.delete(quote.id);
+    return { ok: true };
+  });
+
 const PublicTokenSchema = z.object({ token: z.string().min(6).max(120) });
 
 export const getPublicQuoteByTokenFn = createServerFn({ method: "GET" })

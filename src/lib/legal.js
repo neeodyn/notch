@@ -23,7 +23,7 @@ export const DEFAULT_PAINTING_TERMS = [
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Base44 timestamps are UTC but may omit the zone; read them as UTC everywhere. */
-function parseUtc(iso) {
+export function parseUtc(iso) {
   if (!iso) return NaN;
   const value = String(iso);
   return Date.parse(/[zZ]$|[+-]\d{2}:?\d{2}$/.test(value) ? value : `${value}Z`);
@@ -56,6 +56,17 @@ const NZ_TIME = new Intl.DateTimeFormat("en-NZ", {
   hourCycle: "h23",
   timeZone: "Pacific/Auckland",
 });
+
+const NZ_SHORT_DATE = new Intl.DateTimeFormat("en-NZ", {
+  day: "numeric",
+  month: "short",
+  timeZone: "Pacific/Auckland",
+});
+
+export function formatNzShortDate(iso) {
+  const ms = parseUtc(iso);
+  return Number.isFinite(ms) ? NZ_SHORT_DATE.format(ms) : "";
+}
 
 export function formatNzDate(iso) {
   const ms = parseUtc(iso);

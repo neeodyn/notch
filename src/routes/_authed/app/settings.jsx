@@ -138,7 +138,9 @@ function SettingsScreen() {
                   ? "Standard Plan"
                   : business?.trial_expired
                   ? "7-day free trial ended"
-                  : `Free trial · ${business?.trial_days_left ?? 7} days remaining`}
+                  : !business?.trial_started_at
+                  ? "Free trial · not started yet"
+                  : `Free trial · ${business.trial_days_left} ${business.trial_days_left === 1 ? "day" : "days"} remaining`}
               </p>
             </div>
 
@@ -204,7 +206,7 @@ function SettingsScreen() {
           <p className="text-[13px] text-muted-foreground">
             {isPaid
               ? "Unlimited house walks and homeowner quote links active."
-              : "7 days free from your first sent quote. Connect Stripe checkout when ready to activate live billing; previously sent homeowner quotes remain open forever."}
+              : "7 days free from your first sent quote. Quotes you've already sent always stay open for homeowners."}
           </p>
         </section>
 

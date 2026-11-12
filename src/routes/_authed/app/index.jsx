@@ -8,7 +8,7 @@ import QuoteListCard from "@/components/notch/QuoteListCard";
 import WorkspaceHeader from "@/components/notch/WorkspaceHeader";
 import WorkspaceOverview from "@/components/notch/WorkspaceOverview";
 import { createDraftQuote, generateFollowUpFn, getAppBootstrap } from "@/lib/server-fns";
-import { formatMoney } from "@/lib/pricing";
+import { parseUtc } from "@/lib/legal";
 
 export const Route = createFileRoute("/_authed/app/")({
   head: () => ({ meta: [{ title: "Quotes — Notch" }] }),
@@ -43,7 +43,7 @@ function QuotesListScreen() {
 
   const sevenDaysAgoMs = nowMs ? nowMs - 7 * 24 * 60 * 60 * 1000 : 0;
   const thisWeekQuotes = nowMs
-    ? quotes.filter((q) => Date.parse(q.created_date || "") >= sevenDaysAgoMs)
+    ? quotes.filter((q) => parseUtc(q.created_date) >= sevenDaysAgoMs)
     : quotes;
 
   const weekSentCount = thisWeekQuotes.filter((q) =>
@@ -129,6 +129,7 @@ function QuotesListScreen() {
         )}
 
         {/* Status filter pills */}
+        {quotes.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {FILTER_TABS.map((tab) => {
             const active = statusFilter === tab.key;
@@ -148,6 +149,7 @@ function QuotesListScreen() {
             );
           })}
         </div>
+        )}
 
         {/* Quotes list */}
         <section className="space-y-3">
@@ -159,7 +161,9 @@ function QuotesListScreen() {
                   : "No matching quotes"}
               </p>
               <p className="mx-auto mt-1.5 max-w-sm text-[15px] text-muted-foreground">
-                Tap New quote below, walk each room speaking dimensions, coats, and prices, and snap photos as you go.
+                {statusFilter === "all" && !needle
+                  ? "Tap New quote below, walk each room speaking dimensions, coats, and prices, and snap photos as you go."
+                  : "Nothing matches that search or filter. Try another name, street or status."}
               </p>
             </div>
           ) : (

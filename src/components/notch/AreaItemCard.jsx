@@ -42,9 +42,18 @@ export default function AreaItemCard({
     item.surfaces.includes("walls") &&
     item.surfaces.includes("ceiling");
 
+  // Fields save as you leave them. Nothing is sent when the value is unchanged,
+  // so Undo always steps back a real change.
+  function updateItem(patch) {
+    const unchanged = Object.entries(patch).every(
+      ([key, value]) => (value ?? "") === (item[key] ?? "")
+    );
+    return unchanged ? true : onUpdateItem(item.id, patch);
+  }
+
   async function savePrice() {
     const val = priceInput.trim() === "" ? null : Math.max(0, Number(priceInput));
-    const saved = await onUpdateItem(item.id, {
+    const saved = await updateItem({
       price: val,
       price_source: val == null ? "none" : "owner",
     });
@@ -56,7 +65,7 @@ export default function AreaItemCard({
     const next = current.includes(surf)
       ? current.filter((s) => s !== surf)
       : [...current, surf];
-    onUpdateItem(item.id, { surfaces: next });
+    updateItem({ surfaces: next });
   }
 
   async function handleFileSelect(e) {
@@ -77,7 +86,7 @@ export default function AreaItemCard({
   return (
     <article
       id={`area-card-${item.id}`}
-      className={`apple-surface overflow-hidden rounded-[20px] border border-border bg-card transition-shadow ${
+      className={`apple-surface scroll-mt-20 overflow-hidden rounded-[20px] border border-border bg-card transition-shadow ${
         isHighlighted ? "field-changed-glow" : ""
       }`}
     >
@@ -134,6 +143,7 @@ export default function AreaItemCard({
                   onChange={(e) => setPriceInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") savePrice();
+                    if (e.key === "Escape") setEditingPrice(false);
                   }}
                   className="tabular-money h-11 w-28 rounded-xl border border-input bg-background px-2.5 text-right text-[17px] font-bold"
                 />
@@ -179,7 +189,7 @@ export default function AreaItemCard({
               <button
                 key={c}
                 type="button"
-                onClick={() => onUpdateItem(item.id, { coats: c })}
+                onClick={() => updateItem({ coats: c })}
                 className={`min-h-[36px] rounded-lg px-2.5 text-[13px] font-semibold transition-colors ${
                   active
                     ? "bg-primary text-primary-foreground"
@@ -199,7 +209,7 @@ export default function AreaItemCard({
               <button
                 key={p}
                 type="button"
-                onClick={() => onUpdateItem(item.id, { prep: p })}
+                onClick={() => updateItem({ prep: p })}
                 className={`min-h-[36px] rounded-lg px-2.5 text-[13px] font-medium transition-colors ${
                   active
                     ? "bg-accent text-accent-foreground font-semibold"
@@ -273,7 +283,7 @@ export default function AreaItemCard({
                 <input
                   type="text"
                   defaultValue={item.name || ""}
-                  onBlur={(e) => onUpdateItem(item.id, { name: e.target.value })}
+                  onBlur={(e) => updateItem({ name: e.target.value })}
                   className="mt-1 h-11 w-full rounded-xl border border-input bg-card px-3 text-[15px]"
                 />
               </label>
@@ -281,7 +291,7 @@ export default function AreaItemCard({
                 <span className="text-[12px] font-medium text-muted-foreground">Type</span>
                 <select
                   value={item.kind || "interior"}
-                  onChange={(e) => onUpdateItem(item.id, { kind: e.target.value })}
+                  onChange={(e) => updateItem({ kind: e.target.value })}
                   className="mt-1 h-11 w-full rounded-xl border border-input bg-card px-3 text-[15px]"
                 >
                   {Object.entries(KIND_LABELS).map(([k, lbl]) => (
@@ -294,7 +304,7 @@ export default function AreaItemCard({
             </div>
 
             {item.kind === "exterior" ? (
-              <ExteriorMeasureFields item={item} onUpdateItem={onUpdateItem} />
+              <ExteriorMeasureFields item={item} onUpdateItem={(_id, patch) => updateItem(patch)} />
             ) : (
               <div className="grid grid-cols-3 gap-2.5">
                 <label className="block">
@@ -307,7 +317,7 @@ export default function AreaItemCard({
                     step="0.1"
                     defaultValue={item.length_m ?? ""}
                     onBlur={(e) =>
-                      onUpdateItem(item.id, {
+                      updateItem({
                         length_m: e.target.value === "" ? null : Number(e.target.value),
                       })
                     }
@@ -324,7 +334,7 @@ export default function AreaItemCard({
                     step="0.1"
                     defaultValue={item.width_m ?? ""}
                     onBlur={(e) =>
-                      onUpdateItem(item.id, {
+                      updateItem({
                         width_m: e.target.value === "" ? null : Number(e.target.value),
                       })
                     }
@@ -342,7 +352,7 @@ export default function AreaItemCard({
                     defaultValue={item.stud_m ?? ""}
                     placeholder={String(businessSettings.default_stud_m || 2.4)}
                     onBlur={(e) =>
-                      onUpdateItem(item.id, {
+                      updateItem({
                         stud_m: e.target.value === "" ? null : Number(e.target.value),
                       })
                     }
@@ -383,7 +393,7 @@ export default function AreaItemCard({
                   min="0"
                   defaultValue={item.doors ?? 0}
                   onBlur={(e) =>
-                    onUpdateItem(item.id, { doors: Math.max(0, Number(e.target.value) || 0) })
+                    updateItem({ doors: Math.max(0, Number(e.target.value) || 0) })
                   }
                   className="tabular-money mt-1 h-11 w-full rounded-xl border border-input bg-card px-3 text-[15px]"
                 />
@@ -395,7 +405,7 @@ export default function AreaItemCard({
                   min="0"
                   defaultValue={item.windows ?? 0}
                   onBlur={(e) =>
-                    onUpdateItem(item.id, {
+                    updateItem({
                       windows: Math.max(0, Number(e.target.value) || 0),
                     })
                   }
@@ -406,7 +416,7 @@ export default function AreaItemCard({
                 <span className="text-[12px] font-medium text-muted-foreground">Prep</span>
                 <select
                   value={item.prep || "standard"}
-                  onChange={(e) => onUpdateItem(item.id, { prep: e.target.value })}
+                  onChange={(e) => updateItem({ prep: e.target.value })}
                   className="mt-1 h-11 w-full rounded-xl border border-input bg-card px-2.5 text-[14px]"
                 >
                   {Object.entries(PREP_LABELS).map(([k, lbl]) => (
@@ -426,7 +436,7 @@ export default function AreaItemCard({
                 <input
                   type="text"
                   defaultValue={item.colour || ""}
-                  onBlur={(e) => onUpdateItem(item.id, { colour: e.target.value })}
+                  onBlur={(e) => updateItem({ colour: e.target.value })}
                   className="mt-1 h-11 w-full rounded-xl border border-input bg-card px-3 text-[15px]"
                 />
               </label>
@@ -434,7 +444,7 @@ export default function AreaItemCard({
                 <input
                   type="checkbox"
                   checked={Boolean(item.optional)}
-                  onChange={(e) => onUpdateItem(item.id, { optional: e.target.checked })}
+                  onChange={(e) => updateItem({ optional: e.target.checked })}
                   className="h-5 w-5 accent-[hsl(var(--primary))]"
                 />
                 <span>Homeowner optional extra</span>
@@ -449,7 +459,7 @@ export default function AreaItemCard({
                 rows={2}
                 defaultValue={item.customer_description || ""}
                 onBlur={(e) =>
-                  onUpdateItem(item.id, { customer_description: e.target.value })
+                  updateItem({ customer_description: e.target.value })
                 }
                 className="mt-1 w-full rounded-xl border border-input bg-card p-3 text-[15px]"
               />

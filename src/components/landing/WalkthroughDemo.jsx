@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useInView, useReducedMotion } from "framer-motion";
 import { Camera, Check, Mic, Pause, Play, RotateCcw } from "lucide-react";
 import { Image } from "@/components/ui/image";
 import { NZ_IMAGERY } from "@/lib/nzImagery";
@@ -30,7 +31,6 @@ const WALKTHROUGH_STEPS = [
   {
     at: 0,
     until: 10,
-    timeLabel: "0:04",
     stage: "Client & address",
     spoken:
       "Quote for Sarah Miller, 14 Kauri Street, Ponsonby, 021 555 0134. Thirty percent deposit.",
@@ -45,7 +45,6 @@ const WALKTHROUGH_STEPS = [
   {
     at: 10,
     until: 23,
-    timeLabel: "0:14",
     stage: "Lounge · 5 × 4 m",
     spoken:
       "Lounge, five by four, stud two-four, walls and ceiling, two coats in Resene Alabaster, eleven hundred.",
@@ -60,7 +59,6 @@ const WALKTHROUGH_STEPS = [
   {
     at: 23,
     until: 34,
-    timeLabel: "0:27",
     stage: "Hallway · 8 × 1.2 m",
     spoken:
       "Hallway, eight by one-two, walls only, ceiling optional at one ninety, four hundred.",
@@ -75,7 +73,6 @@ const WALKTHROUGH_STEPS = [
   {
     at: 34,
     until: 40,
-    timeLabel: "0:38",
     stage: "GST & link ready",
     spoken:
       "Done. Square metres calculated, room photos matched, 15% GST itemised, ready to text Sarah from the driveway.",
@@ -92,6 +89,19 @@ const WALKTHROUGH_STEPS = [
 export default function WalkthroughDemo() {
   const [seconds, setSeconds] = useState(25);
   const [playing, setPlaying] = useState(false);
+
+  // The walk plays itself from the start the first time it scrolls into view.
+  const panelRef = useRef(null);
+  const autoStartedRef = useRef(false);
+  const inView = useInView(panelRef, { once: true, amount: 0.25 });
+  const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (!inView || reduceMotion || autoStartedRef.current) return;
+    autoStartedRef.current = true;
+    setSeconds(0);
+    setPlaying(true);
+  }, [inView, reduceMotion]);
 
   useEffect(() => {
     if (!playing) return undefined;
@@ -111,7 +121,8 @@ export default function WalkthroughDemo() {
     WALKTHROUGH_STEPS.find((s) => seconds >= s.at && seconds < s.until) ||
     WALKTHROUGH_STEPS[WALKTHROUGH_STEPS.length - 1];
 
-  const formattedClock = `0:${String(seconds).padStart(2, "0")} / 0:40`;
+  const clock = `0:${String(seconds).padStart(2, "0")}`;
+  const formattedClock = `${clock} / 0:40`;
 
   function handlePlayPause() {
     if (seconds >= 40) {
@@ -123,8 +134,9 @@ export default function WalkthroughDemo() {
   }
 
   return (
-    <section
-      id="walkthrough"
+    <div
+      ref={panelRef}
+      role="group"
       aria-label="40-second house walk demo"
       className="walkthrough-panel apple-surface border border-border bg-card p-4 sm:p-9"
     >
@@ -157,7 +169,7 @@ export default function WalkthroughDemo() {
                 <span className="text-[13px] font-semibold">{activeStep.stage}</span>
               </div>
               <span className="tabular-money text-[13px] font-semibold text-zinc-200">
-                {activeStep.timeLabel}
+                {clock}
               </span>
             </div>
 
@@ -259,8 +271,22 @@ export default function WalkthroughDemo() {
         </div>
       </div>
 
+      <input
+        type="range"
+        min="0"
+        max="40"
+        step="1"
+        value={seconds}
+        onChange={(e) => {
+          setPlaying(false);
+          setSeconds(Number(e.target.value));
+        }}
+        aria-label="Move through the 40-second walk"
+        className="mt-5 block h-1.5 w-full cursor-pointer accent-primary"
+      />
+
       {/* Playback & Step Selector */}
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -268,11 +294,7 @@ export default function WalkthroughDemo() {
             className="flex min-h-[44px] items-center gap-2 rounded-full bg-primary px-5 text-[15px] font-medium text-primary-foreground transition-opacity duration-200 hover:opacity-90"
           >
             {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-            {playing
-              ? "Pause walk"
-              : seconds >= 40
-              ? "Replay 40s walk"
-              : "Play 40s walk"}
+            {playing ? "Pause walk" : seconds >= 40 ? "Replay walk" : "Play walk"}
           </button>
           <button
             type="button"
@@ -311,6 +333,6 @@ export default function WalkthroughDemo() {
           })}
         </div>
       </div>
-    </section>
+    </div>
   );
 }

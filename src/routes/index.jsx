@@ -22,7 +22,7 @@ function LandingPage() {
       <main>
         <PremiumHero />
         <PremiumWorkflow />
-        <section className="premium-section premium-container">
+        <section id="walkthrough" className="premium-section premium-container">
           <div className="section-heading"><h2>Forty seconds.<br /><span>From your words to their&nbsp;quote.</span></h2><p className="section-description">An interactive house walk. Explore each step at your own pace.</p></div>
           <WalkthroughDemo />
         </section>
