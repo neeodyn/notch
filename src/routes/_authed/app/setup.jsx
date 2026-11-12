@@ -8,6 +8,8 @@ import { Image } from "@/components/ui/image";
 import AppDock from "@/components/notch/AppDock";
 import AppTopBar from "@/components/notch/AppTopBar";
 import PriceBookEditor from "@/components/notch/PriceBookEditor";
+import UnsavedChangesDialog from "@/components/notch/UnsavedChangesDialog";
+import { useUnsavedGuard } from "@/hooks/use-unsaved-guard";
 import { getAppBootstrap, saveBusinessProfile } from "@/lib/server-fns";
 import { DEFAULT_PAINTING_TERMS } from "@/lib/legal";
 
@@ -37,6 +39,10 @@ function SetupScreen() {
   const [priceBook, setPriceBook] = useState(business?.price_book || null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const snapshot = JSON.stringify([name, phone, email, gstNumber, pricesIncludeGst, String(defaultStudM), logoUri, priceBook]);
+  const [baseline] = useState(snapshot);
+  const { blocker, allowNavigation } = useUnsavedGuard(snapshot !== baseline);
 
   async function handleLogoChange(e) {
     const file = e.target.files?.[0];
@@ -79,6 +85,7 @@ function SetupScreen() {
         },
       });
       toast.success("Business setup saved");
+      allowNavigation();
       await navigate({ to: "/app" });
     } catch (err) {
       toast.error(err?.message || "Could not save setup");
@@ -88,7 +95,7 @@ function SetupScreen() {
   }
 
   return (
-    <div className="min-h-dvh bg-background pb-32 text-foreground">
+    <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <AppTopBar
         title="Setup"
         actions={
@@ -103,7 +110,7 @@ function SetupScreen() {
         }
       />
 
-      <main className="mx-auto mt-4 max-w-2xl space-y-6 px-4 sm:px-5">
+      <main className="mx-auto mt-4 w-full max-w-2xl flex-1 space-y-6 px-4 pb-8 sm:px-5">
         <p className="text-[16px] leading-snug text-muted-foreground">
           Your painting business details, shown on every homeowner quote. Everything here can be
           skipped or changed later.
@@ -270,6 +277,9 @@ function SetupScreen() {
           {saving ? "Saving…" : "Save and go to quotes"}
         </button>
       </AppDock>
+
+      <UnsavedChangesDialog blocker={blocker} />
+      
     </div>
   );
 }

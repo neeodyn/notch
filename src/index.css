@@ -185,14 +185,15 @@
 .premium-footer { padding-top: clamp(88px, 11vw, 150px); padding-bottom: 40px; }
 
 /* ---------- Quoting app ---------- */
-/* Floating action (e.g. the "Say change" mic) sits just above the bottom dock. */
-.above-dock { bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); }
 .workspace-overview { padding: 28px; border-radius: 28px; background: hsl(var(--ink-surface)); color: hsl(var(--ink-text)); }
 .premium-app .apple-surface { border-radius: 24px; }
 input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid hsl(var(--primary) / .5); outline-offset: 2px; }
 button:focus-visible, a:focus-visible, label:has(input:focus-visible) { outline: 2px solid hsl(var(--primary)); outline-offset: 3px; }
 
 /* ---------- Homeowner proposal ---------- */
+.photo-viewer { background: hsl(var(--ink-surface)); color: hsl(var(--ink-text)); }
+.photo-viewer-control { background: hsl(var(--ink-text) / .12); color: hsl(var(--ink-text)); transition: background-color .2s; }
+.photo-viewer-control:hover { background: hsl(var(--ink-text) / .2); }
 .premium-proposal .proposal-document { padding-top: 26px; }
 .premium-proposal .glass-dock > div { max-width: 768px; }
 .proposal-sample-ribbon { background: hsl(var(--card)); }

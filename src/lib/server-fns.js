@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth-middleware";
 import {
@@ -7,33 +6,26 @@ import {
   calculateQuoteTotals,
   describeMissingMeasurements,
   expandAreasToQuoteItems,
-  formatMoney,
   matchPhotosToItems,
   mergeUnclearNotes,
   priceSingleItem,
   pruneResolvedMeasurementNotes,
 } from "@/lib/pricing";
 import {
-  applyVoiceEditWithRetry,
+  applyConfirmedVoiceEdit,
   createFollowUpSmsText,
   extractQuoteStructureWithRetry,
   generatePublicToken,
   getBusinessSettings,
   getTrialDaysLeft,
-  isQuoteResponseLocked,
   isTrialExpired,
-  lockedQuoteResponse,
-  notifyOwnerByEmail,
+  proposeVoiceEdit,
   saveVersionSnapshot,
+  serializeQuoteTotals,
   signFileUriIfNeeded,
   transcribeAudioOnServer,
 } from "@/lib/quote-engine.server";
 import { DEFAULT_PAINTING_TERMS } from "@/lib/legal";
-import {
-  SAMPLE_BUSINESS,
-  SAMPLE_QUOTE,
-  SAMPLE_QUOTE_TOKEN,
-} from "@/components/sample/sampleQuoteData";
 
 async function getOrInitBusiness(base44, user) {
   const byOwner = await base44.entities.Business.filter(
@@ -51,18 +43,6 @@ async function getOrInitBusiness(base44, user) {
     (b) => b.created_by_id === user.id || b.owner_id === user.id
   );
   return matched || null;
-}
-
-function serializeQuoteTotals(totals) {
-  return {
-    subtotal_excl_gst: totals.subtotalExclGst,
-    gst_amount: totals.gstAmount,
-    total_incl_gst: totals.totalInclGst,
-    subtotal: totals.subtotalExclGst,
-    tax_amount: totals.gstAmount,
-    total: totals.totalInclGst,
-    deposit_amount: totals.depositAmount,
-  };
 }
 
 export const getAppBootstrap = createServerFn({ method: "GET" })
@@ -781,17 +761,23 @@ const VoiceEditSchema = z.object({
   manualTranscript: z.string().max(2000).optional().default(""),
 });
 
-export const voiceEditQuoteFn = createServerFn({ method: "POST" })
+async function loadQuoteForEdit(base44, user, quoteId) {
+  const quote = await base44.entities.Quote.get(quoteId);
+  const business = await getOrInitBusiness(base44, user);
+  const itemsPage = await base44.entities.QuoteItem.filter(
+    { quote_id: quote.id },
+    { sort: "area_number", limit: 100 }
+  );
+  return { quote, business, items: itemsPage.items || [] };
+}
+
+/** Phase 1: transcribe and interpret a change. Nothing on the quote is written. */
+export const proposeVoiceEditFn = createServerFn({ method: "POST" })
   .middleware([requireUser])
   .inputValidator((input) => VoiceEditSchema.parse(input))
   .handler(async ({ data, context }) => {
     const base44 = context.getBase44();
-    const quote = await base44.entities.Quote.get(data.quoteId);
-    const business = await getOrInitBusiness(base44, context.user);
-    const itemsPage = await base44.entities.QuoteItem.filter(
-      { quote_id: quote.id },
-      { sort: "area_number", limit: 100 }
-    );
+    const { quote, items } = await loadQuoteForEdit(base44, context.user, data.quoteId);
 
     const { transcript } = await transcribeAudioOnServer({
       base44,
@@ -807,21 +793,47 @@ export const voiceEditQuoteFn = createServerFn({ method: "POST" })
       throw new Error("Didn't catch any speech. Tap the mic and speak your change.");
     }
 
-    const res = await applyVoiceEditWithRetry({
+    const proposal = await proposeVoiceEdit({
       base44,
       userId: context.user.id,
       quote,
-      items: itemsPage.items || [],
-      business,
+      items,
       editTranscript: transcript,
     });
 
-    return {
-      transcript,
-      changedFields: res.changedFields,
-      versionId: res.versionId,
-      unclearAdded: res.unclearAdded,
-    };
+    return { transcript, ...proposal };
+  });
+
+const ConfirmedChangeSchema = z.object({
+  id: z.string().max(20).optional(),
+  op: z.enum(["set_quote", "set_area", "add_area", "remove_area"]),
+  itemId: z.string().max(120).nullable().optional(),
+  field: z.string().max(40).nullable().optional(),
+  before: z.any().optional(),
+  after: z.any().optional(),
+});
+
+const ApplyEditSchema = z.object({
+  quoteId: z.string().min(1).max(120),
+  transcript: z.string().max(2000).optional().default(""),
+  changes: z.array(ConfirmedChangeSchema).min(1).max(20),
+});
+
+/** Phase 2: apply only the changes the painter ticked, then reprice and total. */
+export const applyVoiceEditFn = createServerFn({ method: "POST" })
+  .middleware([requireUser])
+  .inputValidator((input) => ApplyEditSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const base44 = context.getBase44();
+    const { quote, items, business } = await loadQuoteForEdit(base44, context.user, data.quoteId);
+    return await applyConfirmedVoiceEdit({
+      base44,
+      quote,
+      items,
+      business,
+      changes: data.changes,
+      transcript: data.transcript,
+    });
   });
 
 const UndoQuoteSchema = z.object({
@@ -868,14 +880,32 @@ export const undoQuoteChangeFn = createServerFn({ method: "POST" })
 
 const SendQuoteSchema = z.object({ quoteId: z.string().min(1).max(120) });
 
+const MarkSentSchema = z.object({
+  quoteId: z.string().min(1).max(120),
+  channel: z.enum(["share", "sms", "email", "copy", "manual"]).optional().default("manual"),
+});
+
+/**
+ * The painter confirms they sent the link. Only a draft moves to "sent";
+ * viewed, accepted and declined quotes keep their status, and repeating the
+ * call records nothing new.
+ */
 export const markQuoteSentFn = createServerFn({ method: "POST" })
   .middleware([requireUser])
-  .inputValidator((input) => SendQuoteSchema.parse(input))
+  .inputValidator((input) => MarkSentSchema.parse(input))
   .handler(async ({ data, context }) => {
     const base44 = context.getBase44();
     const quote = await base44.entities.Quote.get(data.quoteId);
-    const business = await getOrInitBusiness(base44, context.user);
+    if (quote.sent_at && quote.status !== "draft") {
+      return {
+        blockedByTrial: false,
+        publicToken: quote.public_token,
+        status: quote.status,
+        alreadySent: true,
+      };
+    }
 
+    const business = await getOrInitBusiness(base44, context.user);
     if (isTrialExpired(business)) {
       return {
         blockedByTrial: true,
@@ -890,16 +920,15 @@ export const markQuoteSentFn = createServerFn({ method: "POST" })
       });
     }
 
-    const nextStatus = quote.status === "accepted" ? "accepted" : "sent";
     const updated = await base44.entities.Quote.update(quote.id, {
-      status: nextStatus,
+      status: quote.status === "draft" ? "sent" : quote.status,
       sent_at: quote.sent_at || nowIso,
     });
 
     await base44.entities.QuoteEvent.create({
       quote_id: quote.id,
       type: "sent",
-      meta: { sent_at: nowIso },
+      meta: { sent_at: nowIso, channel: data.channel },
     });
 
     return {
@@ -936,331 +965,5 @@ export const generateFollowUpFn = createServerFn({ method: "POST" })
     return {
       smsBody,
       clientPhone: quote.client_phone || "",
-    };
-  });
-
-const PublicTokenSchema = z.object({ token: z.string().min(6).max(120) });
-
-export const getPublicQuoteByTokenFn = createServerFn({ method: "GET" })
-  .inputValidator((input) => PublicTokenSchema.parse(input))
-  .handler(async ({ data, context }) => {
-    if (data.token === SAMPLE_QUOTE_TOKEN) {
-      return {
-        isSample: true,
-        business: SAMPLE_BUSINESS,
-        quote: SAMPLE_QUOTE,
-        items: SAMPLE_QUOTE.items,
-        photos: SAMPLE_QUOTE.photos,
-        isOwnerViewing: false,
-      };
-    }
-
-    const base44 = context.getBase44();
-    const svc = base44.asServiceRole;
-
-    const foundPage = await svc.entities.Quote.filter(
-      { public_token: data.token },
-      { limit: 1 }
-    );
-    const quote = foundPage.items?.[0];
-    if (!quote) return null;
-
-    let viewerId = null;
-    try {
-      const me = await base44.auth.me();
-      viewerId = me?.id || null;
-    } catch {
-      viewerId = null;
-    }
-
-    const business = quote.business_id
-      ? await svc.entities.Business.get(quote.business_id).catch(() => null)
-      : null;
-
-    const [itemsPage, photosPage] = await Promise.all([
-      svc.entities.QuoteItem.filter(
-        { quote_id: quote.id },
-        { sort: "area_number", limit: 100 }
-      ),
-      svc.entities.Photo.filter(
-        { quote_id: quote.id },
-        { sort: "taken_at_s", limit: 100 }
-      ),
-    ]);
-
-    const logoUrl = business?.logo_uri
-      ? await signFileUriIfNeeded(base44, business.logo_uri)
-      : null;
-    const signedPhotos = await Promise.all(
-      (photosPage.items || []).map(async (p) => ({
-        id: p.id,
-        item_id: p.item_id,
-        area_number: p.area_number,
-        taken_at_s: p.taken_at_s,
-        pin_x: p.pin_x ?? null,
-        pin_y: p.pin_y ?? null,
-        url: await signFileUriIfNeeded(base44, p.file_uri),
-      }))
-    );
-
-    return {
-      isSample: false,
-      isOwnerViewing: Boolean(viewerId && viewerId === quote.created_by_id),
-      business: business
-        ? {
-            name: business.name,
-            phone: business.phone || "",
-            email: business.email || "",
-            logo_url: logoUrl,
-            currency: business.currency || "NZD",
-            gst_number: business.gst_number || "",
-            gst_rate: business.gst_rate ?? 0.15,
-            prices_include_gst: Boolean(business.prices_include_gst),
-            default_stud_m: business.default_stud_m ?? 2.4,
-            openings_pct: business.openings_pct ?? 10,
-            min_charge: business.min_charge || 0,
-            terms: business.terms || "",
-          }
-        : {
-            name: "Painting & Decorating Proposal",
-            phone: "",
-            email: "",
-            logo_url: null,
-            currency: "NZD",
-            gst_number: "",
-            gst_rate: 0.15,
-            prices_include_gst: false,
-            default_stud_m: 2.4,
-            openings_pct: 10,
-            min_charge: 0,
-            terms: "",
-          },
-      quote: {
-        id: quote.id,
-        public_token: quote.public_token,
-        client_name: quote.client_name || "",
-        address: quote.address || "",
-        status: quote.status,
-        deposit_pct: quote.deposit_pct || 0,
-        notes: quote.notes || "",
-        selected_optional_ids: quote.selected_optional_ids || [],
-        subtotal_excl_gst: quote.subtotal_excl_gst || quote.subtotal || 0,
-        gst_amount: quote.gst_amount || quote.tax_amount || 0,
-        total_incl_gst: quote.total_incl_gst || quote.total || 0,
-        total: quote.total_incl_gst || quote.total || 0,
-        accepted_at: quote.accepted_at || null,
-        accepted_name: quote.accepted_name || null,
-        sent_at: quote.sent_at || null,
-        created_date: quote.created_date,
-      },
-      items: (itemsPage.items || []).map((it) => ({
-        id: it.id,
-        area_number: it.area_number,
-        name: it.name,
-        kind: it.kind || "interior",
-        length_m: it.length_m,
-        width_m: it.width_m,
-        stud_m: it.stud_m,
-        area_m2_spoken: it.area_m2_spoken,
-        soffits_m2: it.soffits_m2 ?? null,
-        fascia_m: it.fascia_m ?? null,
-        surfaces: it.surfaces || [],
-        doors: it.doors || 0,
-        windows: it.windows || 0,
-        coats: it.coats || 2,
-        prep: it.prep || "standard",
-        colour: it.colour || "",
-        optional: Boolean(it.optional),
-        is_optional_split: Boolean(it.is_optional_split),
-        price: it.price,
-        price_source: it.price_source,
-        customer_description: it.customer_description,
-      })),
-      photos: signedPhotos,
-    };
-  });
-
-export const recordPublicQuoteViewFn = createServerFn({ method: "POST" })
-  .inputValidator((input) => PublicTokenSchema.parse(input))
-  .handler(async ({ data, context }) => {
-    if (data.token === SAMPLE_QUOTE_TOKEN) return { recorded: false };
-
-    const base44 = context.getBase44();
-    const svc = base44.asServiceRole;
-    const foundPage = await svc.entities.Quote.filter(
-      { public_token: data.token },
-      { limit: 1 }
-    );
-    const quote = foundPage.items?.[0];
-    if (!quote) return { recorded: false };
-
-    let viewerId = null;
-    try {
-      const me = await base44.auth.me();
-      viewerId = me?.id || null;
-    } catch {
-      viewerId = null;
-    }
-
-    if (viewerId && viewerId === quote.created_by_id) {
-      return { recorded: false, reason: "owner" };
-    }
-
-    if (!quote.viewed_at) {
-      const nowIso = new Date().toISOString();
-      const nextStatus =
-        quote.status === "sent" || quote.status === "draft"
-          ? "viewed"
-          : quote.status;
-      await svc.entities.Quote.update(quote.id, {
-        viewed_at: nowIso,
-        status: nextStatus,
-      });
-      await svc.entities.QuoteEvent.create({
-        quote_id: quote.id,
-        type: "viewed",
-        meta: { viewed_at: nowIso },
-      });
-
-      const business = quote.business_id
-        ? await svc.entities.Business.get(quote.business_id).catch(() => null)
-        : null;
-      await notifyOwnerByEmail({
-        base44,
-        toEmail: business?.email,
-        subject: `${quote.client_name || "Homeowner"} opened your painting quote`,
-        heading: `${quote.client_name || "Your client"} just viewed their quote`,
-        detailLines: [
-          `Property: ${quote.address || "Address not listed"}`,
-          `Quote total (incl. GST): ${formatMoney(quote.total_incl_gst || quote.total || 0, business?.currency || "NZD")}`,
-        ],
-      });
-      return { recorded: true };
-    }
-
-    return { recorded: false };
-  });
-
-const PublicAcceptSchema = z.object({
-  token: z.string().min(6).max(120),
-  action: z.enum(["accept", "decline"]).default("accept"),
-  acceptedName: z.string().max(160).optional().default(""),
-  agreed: z.boolean().optional().default(false),
-  selectedOptionalIds: z.array(z.string().max(120)).default([]),
-});
-
-export const respondToPublicQuoteFn = createServerFn({ method: "POST" })
-  .inputValidator((input) => PublicAcceptSchema.parse(input))
-  .handler(async ({ data, context }) => {
-    if (data.token === SAMPLE_QUOTE_TOKEN) {
-      return {
-        ok: true,
-        isSample: true,
-        status: data.action === "decline" ? "declined" : "accepted",
-        accepted_at: new Date().toISOString(),
-        accepted_name: data.acceptedName || "Sarah Miller",
-      };
-    }
-
-    const base44 = context.getBase44();
-    const svc = base44.asServiceRole;
-    const req = getRequest();
-    const ip =
-      req?.headers?.get("cf-connecting-ip") ||
-      req?.headers?.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      "unknown";
-    const userAgent = req?.headers?.get("user-agent") || "unknown";
-
-    const foundPage = await svc.entities.Quote.filter(
-      { public_token: data.token },
-      { limit: 1 }
-    );
-    const quote = foundPage.items?.[0];
-    if (!quote) throw new Error("Quote not found.");
-    if (isQuoteResponseLocked(quote)) return lockedQuoteResponse(quote);
-
-    const business = quote.business_id
-      ? await svc.entities.Business.get(quote.business_id).catch(() => null)
-      : null;
-    const bizSettings = getBusinessSettings(business);
-
-    if (data.action === "decline") {
-      const nowIso = new Date().toISOString();
-      await svc.entities.Quote.update(quote.id, {
-        status: "declined",
-        declined_at: nowIso,
-      });
-      await svc.entities.QuoteEvent.create({
-        quote_id: quote.id,
-        type: "declined",
-        meta: { declined_at: nowIso },
-      });
-      return { ok: true, status: "declined" };
-    }
-
-    const cleanName = String(data.acceptedName || "").trim();
-    if (cleanName.length < 2 || !data.agreed) {
-      throw new Error(
-        "Please type your full name and tick the agreement box to accept."
-      );
-    }
-
-    const itemsPage = await svc.entities.QuoteItem.filter(
-      { quote_id: quote.id },
-      { sort: "area_number", limit: 100 }
-    );
-    const items = itemsPage.items || [];
-    const validOptionalIds = data.selectedOptionalIds.filter((id) =>
-      items.some((it) => it.id === id && it.optional)
-    );
-
-    const totals = calculateQuoteTotals({
-      items,
-      tickedOptionalIds: validOptionalIds,
-      minCharge: bizSettings.min_charge,
-      gstRate: bizSettings.gst_rate,
-      pricesIncludeGst: bizSettings.prices_include_gst,
-      depositPct: quote.deposit_pct || 0,
-    });
-
-    const nowIso = new Date().toISOString();
-    await svc.entities.Quote.update(quote.id, {
-      status: "accepted",
-      selected_optional_ids: validOptionalIds,
-      ...serializeQuoteTotals(totals),
-      accepted_at: nowIso,
-      accepted_name: cleanName,
-      accepted_ip: ip,
-      accepted_user_agent: userAgent.slice(0, 300),
-    });
-
-    await svc.entities.QuoteEvent.create({
-      quote_id: quote.id,
-      type: "accepted",
-      meta: {
-        accepted_name: cleanName,
-        total_incl_gst: totals.totalInclGst,
-        accepted_at: nowIso,
-      },
-    });
-
-    await notifyOwnerByEmail({
-      base44,
-      toEmail: business?.email,
-      subject: `Quote accepted by ${cleanName} (${formatMoney(totals.totalInclGst, bizSettings.currency)})`,
-      heading: `${cleanName} accepted your painting quote`,
-      detailLines: [
-        `Property: ${quote.address || "Address on file"}`,
-        `Signed total (incl. GST): ${formatMoney(totals.totalInclGst, bizSettings.currency)}`,
-        `Signed by: ${cleanName}`,
-      ],
-    });
-
-    return {
-      ok: true,
-      status: "accepted",
-      accepted_at: nowIso,
-      accepted_name: cleanName,
-      total: totals.totalInclGst,
     };
   });

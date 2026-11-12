@@ -1,30 +1,32 @@
 import { useState } from "react";
 import { Link, createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ExternalLink, Link2, Mic, Plus, RotateCcw, Send } from "lucide-react";
+import { ExternalLink, Footprints, Mic, Plus, RotateCcw, Send } from "lucide-react";
 import { toast } from "sonner";
 import AppDock from "@/components/notch/AppDock";
 import AppTopBar, { TopBarIcon } from "@/components/notch/AppTopBar";
 import AreaItemCard from "@/components/notch/AreaItemCard";
 import CheckAlertBanner from "@/components/notch/CheckAlertBanner";
 import ClientDetailsCard from "@/components/notch/ClientDetailsCard";
+import QuoteTotalsCard from "@/components/notch/QuoteTotalsCard";
 import SnapPhotoStrip from "@/components/notch/SnapPhotoStrip";
 import StatusPill from "@/components/notch/StatusPill";
 import UpgradeTrialSheet from "@/components/notch/UpgradeTrialSheet";
-import VoiceEditDock from "@/components/notch/VoiceEditDock";
+import QuoteChangeSheet from "@/components/notch/change/QuoteChangeSheet";
+import ShareQuoteSheet from "@/components/notch/share/ShareQuoteSheet";
 import { calculateQuoteTotals, formatMoney } from "@/lib/pricing";
 import { listPhotoTargets, orderPhotosBySnap, resolvePhotoTarget } from "@/lib/photos";
-import { RESIDENTIAL_CONTRACT_THRESHOLD } from "@/lib/legal";
 import {
   addOrDeleteQuoteItemFn,
+  applyVoiceEditFn,
   attachAreaPhotoFn,
   getQuoteWorkspace,
   markQuoteSentFn,
+  proposeVoiceEditFn,
   undoQuoteChangeFn,
   updatePhotoPinFn,
   updateQuoteDetailsFn,
   updateQuoteItemFn,
-  voiceEditQuoteFn,
 } from "@/lib/server-fns";
 
 export const Route = createFileRoute("/_authed/app/q/$id/check")({
@@ -46,13 +48,14 @@ function CheckQuoteScreen() {
   const runAddDeleteItem = useServerFn(addOrDeleteQuoteItemFn);
   const runMovePin = useServerFn(updatePhotoPinFn);
   const runAttachPhoto = useServerFn(attachAreaPhotoFn);
-  const runVoiceEdit = useServerFn(voiceEditQuoteFn);
+  const runPropose = useServerFn(proposeVoiceEditFn);
+  const runApplyEdit = useServerFn(applyVoiceEditFn);
   const runUndo = useServerFn(undoQuoteChangeFn);
-  const runSendQuote = useServerFn(markQuoteSentFn);
+  const runMarkSent = useServerFn(markQuoteSentFn);
 
   const [highlightedKeys, setHighlightedKeys] = useState([]);
-  const [applyingVoice, setApplyingVoice] = useState(false);
-  const [sending, setSending] = useState(false);
+  const [changeOpen, setChangeOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const currency = business?.currency || "NZD";
@@ -161,88 +164,54 @@ function CheckQuoteScreen() {
     }
   }
 
-  async function handleApplyVoiceEdit({ fileUri, durationS, manualTranscript }) {
-    setApplyingVoice(true);
-    try {
-      const res = await runVoiceEdit({
-        data: {
-          quoteId: quote.id,
-          fileUri,
-          durationS,
-          manualTranscript,
-        },
-      });
-      await router.invalidate({ sync: true });
-      if (res.changedFields?.length) {
-        triggerFieldGlow(res.changedFields);
-      }
-      toast(`Updated: "${res.transcript}"`, {
-        duration: 6000,
-        action: {
-          label: "Undo",
-          onClick: () => handleUndo(res.versionId),
-        },
-      });
-    } catch (err) {
-      toast.error(err?.message || "Could not apply change");
-    } finally {
-      setApplyingVoice(false);
-    }
+  function handleProposeChange(payload) {
+    return runPropose({ data: { quoteId: quote.id, ...payload } });
   }
 
-  async function handleCopyShareLink() {
-    const shareUrl = `${window.location.origin}/q/${quote.public_token}`;
-    if (navigator.clipboard?.writeText) {
-      const ok = await navigator.clipboard
-        .writeText(shareUrl)
-        .then(() => true)
-        .catch(() => false);
-      toast.success(ok ? "Homeowner quote link copied" : shareUrl);
-    }
+  async function handleApplyChanges({ transcript, changes }) {
+    const res = await runApplyEdit({
+      data: {
+        quoteId: quote.id,
+        transcript,
+        changes: changes.map(({ id, op, itemId, field, before, after }) => ({
+          id,
+          op,
+          itemId: itemId ?? null,
+          field: field ?? null,
+          before,
+          after,
+        })),
+      },
+    });
+    await router.invalidate({ sync: true });
+    if (res.changedFields?.length) triggerFieldGlow(res.changedFields);
+    toast.success(changes.length === 1 ? "Change applied" : `${changes.length} changes applied`, {
+      duration: 6000,
+      action: { label: "Undo", onClick: () => handleUndo(res.versionId) },
+    });
   }
 
-  async function handleSendQuote() {
-    if (sending) return;
-    setSending(true);
-    try {
-      const res = await runSendQuote({ data: { quoteId: quote.id } });
-      if (res.blockedByTrial) {
-        setUpgradeOpen(true);
-        return;
-      }
-
-      await router.invalidate({ sync: true });
-      const shareUrl = `${window.location.origin}/q/${res.publicToken}`;
-      const shareText = `Here is your painting quote from ${business?.name || "our team"}:`;
-
-      if (navigator.share) {
-        await navigator
-          .share({
-            title: `${business?.name || "Painting"} Quote`,
-            text: shareText,
-            url: shareUrl,
-          })
-          .catch(() => {});
-      } else if (navigator.clipboard?.writeText) {
-        const copied = await navigator.clipboard
-          .writeText(shareUrl)
-          .then(() => true)
-          .catch(() => false);
-        toast.success(
-          copied ? "Quote link copied and marked Sent" : "Quote marked Sent"
-        );
-      } else {
-        toast.success("Quote marked Sent");
-      }
-    } catch (err) {
-      toast.error(err?.message || "Could not send quote");
-    } finally {
-      setSending(false);
+  function openShare() {
+    if (quote.status === "draft" && business?.trial_expired) {
+      setUpgradeOpen(true);
+      return;
     }
+    setShareOpen(true);
+  }
+
+  async function handleMarkSent(channel) {
+    const res = await runMarkSent({ data: { quoteId: quote.id, channel } });
+    if (res.blockedByTrial) {
+      setShareOpen(false);
+      setUpgradeOpen(true);
+      return res;
+    }
+    await router.invalidate({ sync: true });
+    return res;
   }
 
   return (
-    <div className="min-h-dvh bg-background pb-52 text-foreground">
+    <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <AppTopBar
         title="Check quote"
         actions={
@@ -263,7 +232,7 @@ function CheckQuoteScreen() {
         }
       />
 
-      <main className="mx-auto mt-4 max-w-2xl space-y-5 px-4 sm:px-5">
+      <main className="mx-auto mt-4 w-full max-w-2xl flex-1 space-y-5 px-4 pb-8 sm:px-5">
         <div className="flex items-center justify-between gap-3">
           <StatusPill status={quote.status} />
           <Link
@@ -271,7 +240,7 @@ function CheckQuoteScreen() {
             params={{ id: quote.id }}
             className="flex min-h-11 items-center gap-1.5 rounded-full bg-card px-3.5 text-[14px] font-semibold text-foreground"
           >
-            <Mic className="h-4 w-4" />
+            <Footprints className="h-4 w-4" />
             <span>Re-walk the house</span>
           </Link>
         </div>
@@ -319,7 +288,7 @@ function CheckQuoteScreen() {
                 No rooms or areas yet
               </p>
               <p className="mt-1 text-[15px] text-muted-foreground">
-                Tap Re-walk above to walk the property, tap Add room, or tap the mic button to speak a room.
+                Re-walk the house, tap Add room, or tap the mic below and say the room.
               </p>
             </div>
           ) : (
@@ -348,88 +317,60 @@ function CheckQuoteScreen() {
           )}
         </section>
 
-        {/* GST Breakdown Card */}
-        <section className="apple-surface space-y-2 rounded-[20px] border border-border bg-card p-5 text-[15px]">
-          <div className="flex justify-between text-muted-foreground">
-            <span>Subtotal (excl. GST)</span>
-            <span className="tabular-money font-medium text-foreground">
-              {formatMoney(totals.subtotalExclGst, currency)}
-            </span>
-          </div>
-          {totals.minChargeApplied && (
-            <div className="flex justify-between text-muted-foreground">
-              <span>Minimum job charge adjustment</span>
-              <span className="tabular-money">
-                +{formatMoney(totals.minChargeDelta, currency)}
-              </span>
-            </div>
-          )}
-          <div className="flex justify-between text-muted-foreground">
-            <span>GST ({totals.gstPctLabel}%)</span>
-            <span className="tabular-money font-medium text-foreground">
-              {formatMoney(totals.gstAmount, currency)}
-            </span>
-          </div>
-          <div className="flex justify-between border-t border-border pt-2.5 text-[18px] font-bold text-foreground">
-            <span>Total (incl. GST)</span>
-            <span className="tabular-money">
-              {formatMoney(totals.totalInclGst, currency)}
-            </span>
-          </div>
-          {quote.deposit_pct > 0 && (
-            <div className="flex justify-between text-[14px] font-semibold text-primary">
-              <span>Deposit ({quote.deposit_pct}%)</span>
-              <span className="tabular-money">
-                {formatMoney(totals.depositAmount, currency)}
-              </span>
-            </div>
-          )}
-          {totals.totalInclGst >= RESIDENTIAL_CONTRACT_THRESHOLD && (
-            <p className="border-t border-border pt-2.5 text-[13px] leading-snug text-muted-foreground">
-              Residential jobs of $30,000 or more incl. GST need a written contract, plus the prescribed checklist and disclosure statement, under the Building Act 2004.
-            </p>
-          )}
-        </section>
+        <QuoteTotalsCard totals={totals} currency={currency} depositPct={quote.deposit_pct || 0} />
       </main>
 
-      {/* Floating 88px "Say a change" Mic */}
-      <VoiceEditDock
-        onApplyVoiceEdit={handleApplyVoiceEdit}
-        isApplying={applyingVoice}
-      />
-
       <AppDock>
-        <div className="min-w-0">
-          <p className="tabular-money truncate text-[21px] font-bold leading-tight text-foreground">
+        <button
+          type="button"
+          onClick={() => setChangeOpen(true)}
+          aria-label="Say a change"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground transition-colors hover:bg-secondary/80"
+        >
+          <Mic className="h-5 w-5" />
+        </button>
+
+        <div className="min-w-0 flex-1">
+          <p className="tabular-money truncate text-[20px] font-bold leading-tight text-foreground">
             {formatMoney(totals.totalInclGst, currency)}
           </p>
           <p className="tabular-money truncate text-[12px] text-muted-foreground">
             {totals.unpricedCount > 0
-              ? `${totals.unpricedCount} area needs your price`
-              : `Incl. ${totals.gstPctLabel}% GST (${formatMoney(totals.subtotalExclGst, currency)} excl.)`}
+              ? `${totals.unpricedCount} ${totals.unpricedCount === 1 ? "area needs" : "areas need"} your price`
+              : `Incl. ${totals.gstPctLabel}% GST`}
           </p>
         </div>
 
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={handleCopyShareLink}
-            aria-label="Copy homeowner quote link"
-            className="flex h-12 w-11 items-center justify-center rounded-2xl border border-border bg-background text-foreground hover:bg-secondary"
-          >
-            <Link2 className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            disabled={sending}
-            onClick={handleSendQuote}
-            className="flex h-12 min-w-[132px] items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-[16px] font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            <Send className="h-5 w-5" />
-            <span>{sending ? "Sending…" : "Send quote"}</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={openShare}
+          className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-[16px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+        >
+          <Send className="h-5 w-5" />
+          <span>{quote.status === "draft" ? "Send" : "Share"}</span>
+        </button>
       </AppDock>
+
+      <QuoteChangeSheet
+        open={changeOpen}
+        onOpenChange={setChangeOpen}
+        quote={quote}
+        items={items}
+        business={business}
+        currency={currency}
+        onPropose={handleProposeChange}
+        onApply={handleApplyChanges}
+      />
+
+      <ShareQuoteSheet
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        quote={quote}
+        business={business}
+        total={totals.totalInclGst}
+        currency={currency}
+        onMarkSent={handleMarkSent}
+      />
 
       <UpgradeTrialSheet open={upgradeOpen} onOpenChange={setUpgradeOpen} />
     </div>

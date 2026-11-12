@@ -24,7 +24,7 @@ import {
   getPublicQuoteByTokenFn,
   recordPublicQuoteViewFn,
   respondToPublicQuoteFn,
-} from "@/lib/server-fns";
+} from "@/lib/public-quote-fns";
 
 export const Route = createFileRoute("/q/$token")({
   loader: async ({ params }) => {

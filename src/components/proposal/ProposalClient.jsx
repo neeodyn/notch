@@ -5,8 +5,8 @@ export default function ProposalClient({ quote }) {
   return (
     <section className="proposal-client print-card">
       <p className="text-[15px] font-medium text-muted-foreground">A proposal for your home</p>
-      <h2 className="mt-3 font-display text-[40px] font-semibold leading-[1.04] tracking-[-0.045em] sm:text-[60px]">Beautiful spaces.<br /><span className="text-muted-foreground/75">Thoughtfully finished.</span></h2>
-      <div className="mt-9 grid gap-6 border-t border-border pt-6 sm:grid-cols-2">
+      <h2 className="mt-2 font-display text-[34px] font-semibold leading-[1.06] tracking-[-0.045em] [text-wrap:balance] sm:mt-3 sm:text-[60px]">Beautiful spaces.<br /><span className="text-muted-foreground/75">Thoughtfully finished.</span></h2>
+      <div className="mt-7 grid gap-5 border-t border-border pt-5 sm:mt-9 sm:grid-cols-2 sm:gap-6 sm:pt-6">
         <div><p className="text-[13px] text-muted-foreground">Prepared for</p><p className="mt-1 text-[19px] font-semibold leading-snug tracking-[-0.02em]">{quote.client_name || "Homeowner"}</p></div>
         {quote.address && <div><p className="text-[13px] text-muted-foreground">The property</p><p className="mt-1 text-[19px] font-semibold leading-snug tracking-[-0.02em]">{quote.address}</p></div>}
       </div>

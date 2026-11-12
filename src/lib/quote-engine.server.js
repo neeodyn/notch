@@ -1,16 +1,18 @@
 import crypto from "node:crypto";
 import { z } from "zod";
 import {
-  ALL_SURFACES,
-  SURFACE_LABELS,
   calculateQuoteTotals,
   describeMissingMeasurements,
-  expandAreasToQuoteItems,
   formatMoney,
   mergeUnclearNotes,
-  priceSingleItem,
   pruneResolvedMeasurementNotes,
 } from "@/lib/pricing";
+import { postProcessExtraction } from "@/lib/quote-ai";
+import {
+  buildEditProposal,
+  simulateEditChanges,
+  validateConfirmedChanges,
+} from "@/lib/quote-edits";
 
 export const PAINTER_VOCAB_PROMPT =
   "gib, stud, skirting, scotia, architraves, weatherboards, soffits, fascia, spouting, sugar soap, undercoat, low sheen, semi-gloss, Resene, Dulux, Wattyl";
@@ -72,6 +74,18 @@ export function lockedQuoteResponse(quote) {
     declined_at: quote.declined_at || null,
     total: quote.total_incl_gst || quote.total || 0,
     selected_optional_ids: quote.selected_optional_ids || [],
+  };
+}
+
+export function serializeQuoteTotals(totals) {
+  return {
+    subtotal_excl_gst: totals.subtotalExclGst,
+    gst_amount: totals.gstAmount,
+    total_incl_gst: totals.totalInclGst,
+    subtotal: totals.subtotalExclGst,
+    tax_amount: totals.gstAmount,
+    total: totals.totalInclGst,
+    deposit_amount: totals.depositAmount,
   };
 }
 
@@ -307,12 +321,19 @@ export async function extractQuoteStructureWithRetry({
       ? `Photos snapped at seconds: ${photoTimes.map((t) => `${Number(t).toFixed(1)}s`).join(", ")}`
       : "No photos snapped.";
 
-  const prompt = `You are structuring a New Zealand painter & decorator property walk recording into JSON.
-NZ Painter vocabulary reference: ${PAINTER_VOCAB_PROMPT}.
+  const prompt = `You are structuring a New Zealand painter & decorator's property walk recording into JSON for a quote.
+NZ painter vocabulary: ${PAINTER_VOCAB_PROMPT}.
+
+HOW PAINTERS SAY NUMBERS:
+- Dimensions: "five by four" = 5 x 4 m; "four point two by three" = 4.2 x 3; "eight by one-two" = 8 x 1.2.
+- Stud: "stud two-four" or "two point four stud" = 2.4 m; "two-seven" = 2.7; "three metre stud" = 3.
+- Prices: "eleven hundred" = 1100; "four fifty" = 450; "one ninety" = 190; "twelve fifty" = 1250; "two grand" = 2000; "one point five k" = 1500.
+- Counts: "two coats" = 2; "a window" = 1.
 
 STRICT RULES:
 1. Output JSON only matching the schema: { client, areas[], deposit_pct, notes, unclear[] }.
-2. Fill ONLY what was said. Never invent dimensions or prices.
+2. Fill ONLY what was said. Never invent, estimate or calculate dimensions, areas or prices, and never work out m² yourself.
+2b. A number is a price only when it is said as the cost of an area ("..., eleven hundred", "four hundred for the hallway"). Dimensions, stud heights, coats, counts and percentages are never prices. If unsure whether a number was a price, set spoken_price: null and add a note to unclear[].
 3. Dimensions in metres: "five by four" => length_m: 5, width_m: 4; "stud two-four" => stud_m: 2.4; "eight by one-two" => length_m: 8, width_m: 1.2.
 4. A stated total area ("about one-eighty square metres") goes in area_m2_spoken: 180. For an exterior, area_m2_spoken is the weatherboard / wall cladding area only.
 4b. Soffits and fascia are measured separately. A spoken soffit area ("soffits about thirty square metres") goes in soffits_m2: 30. A spoken fascia length in metres ("sixty metres of fascia") goes in fascia_m: 60. NEVER copy area_m2_spoken into soffits_m2 or fascia_m, and NEVER put square metres in fascia_m. If soffits or fascia are included but not measured, include them in surfaces and leave soffits_m2 / fascia_m null.
@@ -323,7 +344,11 @@ STRICT RULES:
 9. prep: "light" ("freshen up", "quick coat"), "heavy" ("lots of filling", "peeling", "strip wallpaper", "bare timber"), otherwise "standard".
 10. Mark optional: if the entire area is optional, set optional: true. If only a specific surface in a room is optional (e.g. "Hallway, walls only, ceiling optional, four hundred"), include both in surfaces (["walls","ceiling"]), put ["ceiling"] in optional_surfaces, put 400 in spoken_price, and any spoken optional price in optional_spoken_price (or null if none spoken).
 11. customer_description: ONE plain-English homeowner sentence using New Zealand spelling (colour, metres, undercoat, mould) WITHOUT any dollar prices or emojis.
-12. Any spoken language in, English out. Anything uncertain or ambiguous goes in unclear[].
+12. doors and windows only when a count is said; otherwise null.
+13. deposit_pct only when a deposit percentage is said ("thirty percent deposit" = 30), as a whole percentage, never a fraction.
+14. Client: name, phone, email and address exactly as said.
+15. unclear[]: one short line per specific problem, naming the area (e.g. "Lounge: price not clear"). No generic notes.
+16. Any spoken language in, English out.
 
 TRANSCRIPT SEGMENTS:
 ${formattedSegments || "[s0 0:00] (empty recording)"}
@@ -350,47 +375,10 @@ ${photoLine}`;
     throw lastErr || new Error("Could not parse property walk into room items.");
   }
 
-  // Post-process "same as <room>" inheritance and guarantee missing interior stud note in unclear[]
-  const unclearSet = new Set(parsed.unclear || []);
-  const resolvedAreas = [];
-
-  for (const area of parsed.areas) {
-    const next = { ...area };
-    if (next.same_as_area) {
-      const targetName = next.same_as_area.trim().toLowerCase().replace(/^the\s+/, "");
-      const ref =
-        resolvedAreas.find((a) => (a.name || "").toLowerCase().includes(targetName)) ||
-        resolvedAreas[resolvedAreas.length - 1];
-      if (ref) {
-        if (!next.surfaces || next.surfaces.length === 0) next.surfaces = ref.surfaces;
-        if (!next.coats) next.coats = ref.coats;
-        if (!next.prep) next.prep = ref.prep;
-        if (!next.colour && ref.colour) next.colour = ref.colour;
-      }
-    }
-
-    const kind = next.kind || "interior";
-    const surfs = Array.isArray(next.surfaces) ? next.surfaces : ["walls"];
-    if (kind === "interior" && surfs.includes("walls") && next.stud_m == null) {
-      const label = next.name || `Area ${resolvedAreas.length + 1}`;
-      const alreadyNoted = [...unclearSet].some(
-        (u) => u.toLowerCase().includes(label.toLowerCase()) && u.toLowerCase().includes("stud")
-      );
-      if (!alreadyNoted) {
-        unclearSet.add(
-          `${label}: stud height not stated (wall m² shown using ${defaultStudM} m default stud)`
-        );
-      }
-    }
-
-    resolvedAreas.push(next);
-  }
-
-  return {
-    ...parsed,
-    areas: resolvedAreas,
-    unclear: [...unclearSet],
-  };
+  return postProcessExtraction(parsed, {
+    transcript: segments.map((seg) => seg.text).join(" "),
+    defaultStudM,
+  });
 }
 
 export async function saveVersionSnapshot(base44, quoteId, reason) {
@@ -487,6 +475,7 @@ const EDIT_JSON_SCHEMA = {
               { type: "null" },
             ],
           },
+          evidence: { type: ["string", "null"] },
         },
         required: ["op"],
       },
@@ -499,95 +488,14 @@ const EDIT_JSON_SCHEMA = {
   required: ["changes", "unclear"],
 };
 
-const ALLOWED_QUOTE_FIELDS = new Set([
-  "client_name",
-  "client_phone",
-  "client_email",
-  "address",
-  "deposit_pct",
-  "notes",
-]);
-
-const ALLOWED_AREA_FIELDS = new Set([
-  "name",
-  "kind",
-  "length_m",
-  "width_m",
-  "stud_m",
-  "area_m2_spoken",
-  "soffits_m2",
-  "fascia_m",
-  "surfaces",
-  "optional_surfaces",
-  "doors",
-  "windows",
-  "coats",
-  "prep",
-  "prep_notes",
-  "colour",
-  "spoken_price",
-  "price",
-  "optional",
-  "customer_description",
-]);
-
-function findTargetItemIndex(workingItems, areaRef) {
-  if (areaRef == null || areaRef === "") return -1;
-  const asNum = Number(areaRef);
-  if (Number.isFinite(asNum) && asNum > 0) {
-    const mainIdx = workingItems.findIndex(
-      (it) => Number(it.area_number) === asNum && !it.is_optional_split
-    );
-    if (mainIdx !== -1) return mainIdx;
-    return workingItems.findIndex((it) => Number(it.area_number) === asNum);
-  }
-
-  const needle = String(areaRef)
-    .toLowerCase()
-    .trim()
-    .replace(/^(the|room|area)\s+/i, "");
-
-  if (!needle) return -1;
-
-  const asksOptionalSub =
-    needle.includes("ceiling") || needle.includes("optional") || needle.includes("skirting");
-
-  if (asksOptionalSub) {
-    const optMatch = workingItems.findIndex(
-      (it) => it.is_optional_split && (it.name || "").toLowerCase().includes(needle.split(" ")[0])
-    );
-    if (optMatch !== -1) return optMatch;
-  }
-
-  const exactMain = workingItems.findIndex(
-    (it) => !it.is_optional_split && (it.name || "").toLowerCase().trim() === needle
-  );
-  if (exactMain !== -1) return exactMain;
-
-  const partialMain = workingItems.findIndex(
-    (it) => !it.is_optional_split && (it.name || "").toLowerCase().includes(needle)
-  );
-  if (partialMain !== -1) return partialMain;
-
-  return workingItems.findIndex((it) => (it.name || "").toLowerCase().includes(needle));
-}
-
-export async function applyVoiceEditWithRetry({
-  base44,
-  userId,
-  quote,
-  items,
-  business,
-  editTranscript,
-}) {
+/** Phase 1 of a voice edit: works out what the painter asked for. Writes nothing. */
+export async function proposeVoiceEdit({ base44, userId, quote, items, editTranscript }) {
   enforceAiRateLimit(userId);
-  const bizSettings = getBusinessSettings(business);
-  const priceBook = business?.price_book || null;
 
-  const areasSummary = items.map((it) => ({
-    area_number: it.area_number,
+  const areaList = items.map((it) => ({
+    area: it.area_number,
     name: it.name,
-    is_optional_split: Boolean(it.is_optional_split),
+    optional_part: Boolean(it.is_optional_split),
     kind: it.kind,
     length_m: it.length_m,
     width_m: it.width_m,
@@ -603,11 +511,11 @@ export async function applyVoiceEditWithRetry({
     colour: it.colour,
     optional: it.optional,
     price: it.price,
-    customer_description: it.customer_description,
   }));
 
-  const prompt = `You are applying a spoken painter's edit to an existing New Zealand painting quote.
+  const prompt = `You are turning a painter's spoken change into precise edits on an existing New Zealand painting quote.
 Vocabulary: ${PAINTER_VOCAB_PROMPT}.
+Spoken numbers: "four fifty" = 450, "eleven hundred" = 1100, "two grand" = 2000, stud "two-four" = 2.4.
 
 CURRENT QUOTE:
 ${JSON.stringify(
@@ -618,29 +526,32 @@ ${JSON.stringify(
     address: quote.address,
     deposit_pct: quote.deposit_pct,
     notes: quote.notes,
-    areas: areasSummary,
+    areas: areaList,
   },
   null,
   2
 )}
 
-PAINTER SPOKEN EDIT:
+PAINTER'S CHANGE:
 "${editTranscript}"
 
-STRICT RULES:
+RULES:
 1. Return JSON { "changes": [...], "unclear": [...] }.
-2. Ops allowed:
-   - { "op": "set", "area": <number or room name or null for quote-level>, "field": "<field>", "value": <value> }
-   - { "op": "add_area", "value": { "name", "kind", "length_m", "width_m", "stud_m", "area_m2_spoken", "soffits_m2", "fascia_m", "surfaces", "coats", "prep", "colour", "spoken_price", "optional", "customer_description" } }
-   - { "op": "remove_area", "area": <number or room name> }
-3. Areas can be referenced by number (1, 2) OR by room name ("Lounge", "Hallway", "Hallway — Ceiling").
-4. Change ONLY what was asked. Never alter other rooms or fields.
-5. Quote-level fields (set area: null): client_name, client_phone, client_email, address, deposit_pct, notes.
-6. Area-level fields: name, kind, length_m, width_m, stud_m, area_m2_spoken, soffits_m2, fascia_m, surfaces, optional_surfaces, doors, windows, coats, prep, prep_notes, colour, spoken_price, optional, customer_description.
-6b. area_m2_spoken is the weatherboard / wall area. "Soffits are thirty square metres" sets soffits_m2: 30. "Fascia is sixty metres" sets fascia_m: 60 (linear metres). Never copy one measurement into another field.
-7. When the painter states a new price ("hallway is four fifty"), set field: "spoken_price", value: 450. Copy spoken numbers verbatim; never invent prices.
-8. If the painter asks to make a specific surface optional (e.g. "make lounge ceiling optional"), set field: "optional_surfaces", value: ["ceiling"].
-9. Anything ambiguous goes into unclear[] with NO change applied for that ambiguous part.`;
+2. Ops:
+   - { "op": "set", "area": <area number or exact area name, or null for quote-level>, "field": "<field>", "value": <value>, "evidence": "<exact words from the change>" }
+   - { "op": "add_area", "value": { "name", "kind", "length_m", "width_m", "stud_m", "area_m2_spoken", "soffits_m2", "fascia_m", "surfaces", "coats", "prep", "colour", "spoken_price", "optional" }, "evidence": "..." }
+   - { "op": "remove_area", "area": <area number or name>, "evidence": "..." }
+3. Use the area number from CURRENT QUOTE when you can. For an optional part (e.g. "Hallway — Ceiling") use its exact name.
+4. If a reference could mean more than one area, make NO change for it and add a question to unclear[] naming the options.
+5. Change only what was asked, one change per field. Never alter other areas.
+6. Quote-level fields: client_name, client_phone, client_email, address, deposit_pct, notes.
+7. Area fields: name, kind, length_m, width_m, stud_m, area_m2_spoken, soffits_m2, fascia_m, surfaces, optional_surfaces, doors, windows, coats, prep, prep_notes, colour, spoken_price, optional, customer_description.
+8. area_m2_spoken is the weatherboard / wall m². soffits_m2 is soffit m². fascia_m is fascia in linear metres. Never copy one measurement into another.
+9. A new price goes in spoken_price, copied exactly as said. Never calculate or invent a price.
+10. "Make the lounge ceiling optional" = set optional_surfaces ["ceiling"] on the Lounge.
+11. surfaces values: walls, ceiling, skirting, weatherboards, soffits, fascia. prep values: light, standard, heavy.
+12. evidence must be copied word for word from the painter's change.
+13. Anything you can't map confidently goes in unclear[] with no change.`;
 
   let parsed = null;
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -651,10 +562,7 @@ STRICT RULES:
       });
       const obj = typeof raw === "string" ? JSON.parse(raw) : raw;
       if (obj && Array.isArray(obj.changes)) {
-        parsed = {
-          changes: obj.changes,
-          unclear: Array.isArray(obj.unclear) ? obj.unclear.map(String) : [],
-        };
+        parsed = obj;
         break;
       }
     } catch {
@@ -663,160 +571,108 @@ STRICT RULES:
   }
 
   if (!parsed) {
-    throw new Error("Could not interpret spoken change. Try phrasing it again.");
+    throw new Error("Couldn't work out that change. Try saying it another way.");
   }
 
+  return buildEditProposal({
+    rawChanges: parsed.changes,
+    rawUnclear: Array.isArray(parsed.unclear) ? parsed.unclear : [],
+    quote,
+    items,
+    transcript: editTranscript,
+  });
+}
+
+const ITEM_WRITE_FIELDS = [
+  "name",
+  "kind",
+  "length_m",
+  "width_m",
+  "stud_m",
+  "area_m2_spoken",
+  "soffits_m2",
+  "fascia_m",
+  "surfaces",
+  "doors",
+  "windows",
+  "coats",
+  "prep",
+  "prep_notes",
+  "colour",
+  "optional",
+  "is_optional_split",
+  "spoken_price",
+  "price",
+  "price_book_estimate",
+  "price_source",
+  "flagged",
+  "needs_owner_price",
+  "customer_description",
+];
+
+function itemWritePayload(item) {
+  return Object.fromEntries(ITEM_WRITE_FIELDS.map((key) => [key, item[key] ?? null]));
+}
+
+/** Phase 2: applies only the changes the painter confirmed, with an undo snapshot. */
+export async function applyConfirmedVoiceEdit({
+  base44,
+  quote,
+  items,
+  business,
+  changes,
+  transcript = "",
+  extraUnclear = [],
+}) {
+  const bizSettings = getBusinessSettings(business);
+  const confirmed = validateConfirmedChanges(changes, { quote, items });
+  const sim = simulateEditChanges({
+    items,
+    changes: confirmed,
+    priceBook: business?.price_book || null,
+    settings: bizSettings,
+  });
+
   const version = await saveVersionSnapshot(base44, quote.id, "voice_edit");
-  const changedFields = [];
-  const quotePatch = {};
-  let workingItems = [...items];
-  const touchedIds = new Set();
 
-  for (const change of parsed.changes) {
-    if (
-      change.op === "set" &&
-      (change.area == null || change.area === "") &&
-      change.field &&
-      ALLOWED_QUOTE_FIELDS.has(change.field)
-    ) {
-      quotePatch[change.field] = change.value;
-      changedFields.push(`quote:${change.field}`);
-    } else if (
-      change.op === "set" &&
-      change.area != null &&
-      change.field &&
-      ALLOWED_AREA_FIELDS.has(change.field)
-    ) {
-      const idx = findTargetItemIndex(workingItems, change.area);
-      if (idx === -1) continue;
-
-      const target = { ...workingItems[idx] };
-      const areaNum = target.area_number;
-      const field = change.field;
-      touchedIds.add(target.id);
-
-      if (field === "spoken_price" || field === "price") {
-        const num = change.value == null ? null : Number(change.value);
-        target.spoken_price = num;
-        target.price_source = num != null ? "spoken" : "none";
-        const repriced = priceSingleItem(target, priceBook, bizSettings);
-        workingItems[idx] = repriced;
-        await base44.entities.QuoteItem.update(repriced.id, {
-          spoken_price: repriced.spoken_price,
-          price: repriced.price,
-          price_book_estimate: repriced.price_book_estimate,
-          price_source: repriced.price_source,
-          flagged: repriced.flagged,
-        });
-        changedFields.push(`area:${areaNum}:price`);
-      } else if (field === "optional_surfaces" && Array.isArray(change.value)) {
-        const optSurfs = change.value.filter((s) => ALL_SURFACES.includes(s));
-        if (optSurfs.length > 0) {
-          target.surfaces = (target.surfaces || []).filter((s) => !optSurfs.includes(s));
-          const repricedMain = priceSingleItem(target, priceBook, bizSettings);
-          workingItems[idx] = repricedMain;
-          await base44.entities.QuoteItem.update(repricedMain.id, {
-            surfaces: repricedMain.surfaces,
-            price: repricedMain.price,
-            price_book_estimate: repricedMain.price_book_estimate,
-            price_source: repricedMain.price_source,
-            flagged: repricedMain.flagged,
-          });
-
-          const existingOpt = workingItems.find(
-            (it) => it.area_number === areaNum && it.is_optional_split
-          );
-          if (!existingOpt) {
-            const labelSuffix = optSurfs.map((s) => SURFACE_LABELS[s] || s).join(" & ");
-            const optDraft = priceSingleItem(
-              {
-                quote_id: quote.id,
-                area_number: areaNum,
-                name: `${repricedMain.name} — ${labelSuffix}`,
-                kind: repricedMain.kind,
-                length_m: repricedMain.length_m,
-                width_m: repricedMain.width_m,
-                stud_m: repricedMain.stud_m,
-                area_m2_spoken: null,
-                surfaces: optSurfs,
-                doors: 0,
-                windows: 0,
-                coats: repricedMain.coats,
-                prep: repricedMain.prep,
-                colour: repricedMain.colour || "",
-                spoken_price: null,
-                optional: true,
-                is_optional_split: true,
-                customer_description: `Prepare and apply ${repricedMain.coats || 2} coats to ${(repricedMain.name || "room").toLowerCase()} ${optSurfs.join(" and ")}.`,
-              },
-              priceBook,
-              bizSettings
-            );
-            const createdOpt = await base44.entities.QuoteItem.create(optDraft);
-            workingItems.push(createdOpt);
-            touchedIds.add(createdOpt.id);
-          }
-          changedFields.push(`area:${areaNum}:surfaces`);
-        }
-      } else {
-        target[field] = change.value;
-        const repriced = priceSingleItem(target, priceBook, bizSettings);
-        workingItems[idx] = repriced;
-        await base44.entities.QuoteItem.update(repriced.id, {
-          [field]: repriced[field],
-          price: repriced.price,
-          price_book_estimate: repriced.price_book_estimate,
-          price_source: repriced.price_source,
-          flagged: repriced.flagged,
-        });
-        changedFields.push(`area:${areaNum}:${field}`);
-      }
-    } else if (change.op === "add_area" && change.value && typeof change.value === "object") {
-      const nextNum =
-        workingItems.reduce((max, it) => Math.max(max, Number(it.area_number) || 0), 0) + 1;
-      const expanded = expandAreasToQuoteItems(
-        [{ ...change.value, area_number: nextNum }],
-        priceBook,
-        bizSettings
-      );
-      for (const draft of expanded) {
-        const created = await base44.entities.QuoteItem.create({
-          ...draft,
+  for (const id of sim.removedIds) {
+    await base44.entities.QuoteItem.delete(id);
+  }
+  const finalItems = [];
+  for (const item of sim.items) {
+    if (item.isNew) {
+      finalItems.push(
+        await base44.entities.QuoteItem.create({
+          ...itemWritePayload(item),
           quote_id: quote.id,
-        });
-        workingItems.push(created);
-        touchedIds.add(created.id);
+          area_number: item.area_number,
+          start_segment: null,
+        })
+      );
+    } else {
+      if (sim.updatedIds.has(item.id)) {
+        await base44.entities.QuoteItem.update(item.id, itemWritePayload(item));
       }
-      changedFields.push(`area:${nextNum}:added`);
-    } else if (change.op === "remove_area" && change.area != null) {
-      const idx = findTargetItemIndex(workingItems, change.area);
-      if (idx !== -1) {
-        const areaNum = workingItems[idx].area_number;
-        const toRemove = workingItems.filter((it) => it.area_number === areaNum);
-        for (const rem of toRemove) {
-          if (rem.id) await base44.entities.QuoteItem.delete(rem.id);
-        }
-        workingItems = workingItems.filter((it) => it.area_number !== areaNum);
-        changedFields.push(`area:${areaNum}:removed`);
-      }
+      finalItems.push(item);
     }
   }
 
-  quotePatch.unclear = pruneResolvedMeasurementNotes(
-    mergeUnclearNotes(
-      quote.unclear || [],
-      parsed.unclear,
-      describeMissingMeasurements(
-        workingItems.filter((it) => touchedIds.has(it.id)),
-        bizSettings
-      )
+  const touched = sim.items.filter((it) => it.isNew || sim.updatedIds.has(it.id));
+  const quotePatch = {
+    ...sim.quotePatch,
+    unclear: pruneResolvedMeasurementNotes(
+      mergeUnclearNotes(
+        quote.unclear || [],
+        extraUnclear,
+        describeMissingMeasurements(touched, bizSettings)
+      ),
+      finalItems,
+      bizSettings
     ),
-    workingItems,
-    bizSettings
-  );
+  };
 
   const totals = calculateQuoteTotals({
-    items: workingItems,
+    items: finalItems,
     tickedOptionalIds: quote.selected_optional_ids || [],
     minCharge: bizSettings.min_charge,
     gstRate: bizSettings.gst_rate,
@@ -824,7 +680,7 @@ STRICT RULES:
     depositPct: quotePatch.deposit_pct ?? quote.deposit_pct ?? 0,
   });
 
-  const updatedQuote = await base44.entities.Quote.update(quote.id, {
+  await base44.entities.Quote.update(quote.id, {
     ...quotePatch,
     subtotal_excl_gst: totals.subtotalExclGst,
     gst_amount: totals.gstAmount,
@@ -838,16 +694,35 @@ STRICT RULES:
   await base44.entities.QuoteEvent.create({
     quote_id: quote.id,
     type: "edited",
-    meta: { transcript: editTranscript, changedFields },
+    meta: { transcript, changedFields: sim.changedFields },
   });
 
-  return {
-    quote: updatedQuote,
-    items: workingItems,
-    changedFields,
-    versionId: version.id,
-    unclearAdded: parsed.unclear,
-  };
+  return { versionId: version.id, changedFields: sim.changedFields };
+}
+
+/** One-step edit used by the /api/edit route: applies every clear change. */
+export async function applyVoiceEditWithRetry({
+  base44,
+  userId,
+  quote,
+  items,
+  business,
+  editTranscript,
+}) {
+  const proposal = await proposeVoiceEdit({ base44, userId, quote, items, editTranscript });
+  if (proposal.changes.length === 0) {
+    return { changedFields: [], versionId: null, unclearAdded: proposal.clarifications };
+  }
+  const res = await applyConfirmedVoiceEdit({
+    base44,
+    quote,
+    items,
+    business,
+    changes: proposal.changes,
+    transcript: editTranscript,
+    extraUnclear: proposal.clarifications,
+  });
+  return { ...res, unclearAdded: proposal.clarifications };
 }
 
 export async function notifyOwnerByEmail({

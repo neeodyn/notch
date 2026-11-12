@@ -88,10 +88,10 @@ function QuotesListScreen() {
   }
 
   return (
-    <div className="min-h-dvh bg-background pb-32 text-foreground">
+    <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <WorkspaceHeader businessName={business?.name} />
 
-      <main className="mx-auto mt-5 max-w-2xl space-y-5 px-4 sm:px-5">
+      <main className="mx-auto mt-5 w-full max-w-2xl flex-1 space-y-5 px-4 pb-8 sm:px-5">
         {!business && (
           <div className="apple-surface flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-border bg-card p-4">
             <div>

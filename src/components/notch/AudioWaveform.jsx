@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export default function AudioWaveform({ stream, active = false, barCount = 20 }) {
+export default function AudioWaveform({ stream, active = false, barCount = 20, barClassName = "bg-white/90" }) {
   const [levels, setLevels] = useState(() => Array.from({ length: barCount }, () => 0.18));
   const rafRef = useRef(null);
 
@@ -49,7 +49,7 @@ export default function AudioWaveform({ stream, active = false, barCount = 20 })
         <span
           key={idx}
           style={{ height: `${Math.round(lvl * 26)}px` }}
-          className="w-1 rounded-full bg-white/90 transition-all duration-150"
+          className={`w-1 rounded-full transition-all duration-150 ${barClassName}`}
         />
       ))}
     </div>
