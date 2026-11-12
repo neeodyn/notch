@@ -136,6 +136,7 @@ export default function AreaItemCard({
               <div className="flex items-center gap-1.5">
                 <input
                   type="number"
+                  inputMode="decimal"
                   min="0"
                   step="10"
                   autoFocus
@@ -315,6 +316,7 @@ export default function AreaItemCard({
                     type="number"
                     min="0"
                     step="0.1"
+                    inputMode="decimal"
                     defaultValue={item.length_m ?? ""}
                     onBlur={(e) =>
                       updateItem({
@@ -332,6 +334,7 @@ export default function AreaItemCard({
                     type="number"
                     min="0"
                     step="0.1"
+                    inputMode="decimal"
                     defaultValue={item.width_m ?? ""}
                     onBlur={(e) =>
                       updateItem({
@@ -349,6 +352,7 @@ export default function AreaItemCard({
                     type="number"
                     min="1.5"
                     step="0.1"
+                    inputMode="decimal"
                     defaultValue={item.stud_m ?? ""}
                     placeholder={String(businessSettings.default_stud_m || 2.4)}
                     onBlur={(e) =>
@@ -391,6 +395,7 @@ export default function AreaItemCard({
                 <input
                   type="number"
                   min="0"
+                  inputMode="numeric"
                   defaultValue={item.doors ?? 0}
                   onBlur={(e) =>
                     updateItem({ doors: Math.max(0, Number(e.target.value) || 0) })
@@ -403,6 +408,7 @@ export default function AreaItemCard({
                 <input
                   type="number"
                   min="0"
+                  inputMode="numeric"
                   defaultValue={item.windows ?? 0}
                   onBlur={(e) =>
                     updateItem({

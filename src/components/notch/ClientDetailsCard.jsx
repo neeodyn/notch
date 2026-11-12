@@ -97,6 +97,7 @@ export default function ClientDetailsCard({ quote, highlightedKeys = [], onSaveP
             <span className="text-[13px] font-medium text-muted-foreground">Deposit (%)</span>
             <input
               type="number"
+              inputMode="decimal"
               min="0"
               max="100"
               value={draft.deposit_pct}

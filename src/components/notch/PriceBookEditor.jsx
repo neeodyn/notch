@@ -113,6 +113,7 @@ export default function PriceBookEditor({ value, onChange }) {
               type="number"
               min="0"
               step="1"
+              inputMode="decimal"
               value={book[rf.key] ?? 0}
               onChange={(e) => updateField(rf.key, e.target.value)}
               className="tabular-money h-14 w-28 rounded-xl border border-input bg-card px-3 text-right text-[20px] font-bold text-foreground"
@@ -140,6 +141,7 @@ export default function PriceBookEditor({ value, onChange }) {
                   min="0.1"
                   max="5"
                   step="0.05"
+                  inputMode="decimal"
                   value={book.prep?.[k] ?? 1}
                   onChange={(e) => updatePrep(k, e.target.value)}
                   className="tabular-money mt-1 h-12 w-full rounded-xl border border-input bg-card px-2.5 text-center text-[16px] font-semibold"
@@ -166,6 +168,7 @@ export default function PriceBookEditor({ value, onChange }) {
                   min="0.1"
                   max="5"
                   step="0.05"
+                  inputMode="decimal"
                   value={book.coats?.[k] ?? 1}
                   onChange={(e) => updateCoat(k, e.target.value)}
                   className="tabular-money mt-1 h-12 w-full rounded-xl border border-input bg-card px-2.5 text-center text-[16px] font-semibold"
@@ -190,6 +193,7 @@ export default function PriceBookEditor({ value, onChange }) {
           type="number"
           min="1"
           step="5"
+          inputMode="numeric"
           value={book.round_to ?? 10}
           onChange={(e) => updateField("round_to", e.target.value)}
           className="tabular-money h-14 w-28 rounded-xl border border-input bg-card px-3 text-right text-[20px] font-bold text-foreground"

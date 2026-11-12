@@ -1,7 +1,7 @@
 import { ChevronRight } from "lucide-react";
 import StartLink from "@/components/landing/StartLink";
 
-const safeguards = ["Your spoken price always comes first", "Outlier prices flagged against your rate card", "Recordings saved on your phone before upload", "Acceptance recorded with name, time and IP"];
+const safeguards = ["Your spoken price always comes first", "Outlier prices flagged against your rate card", "Recordings saved on your phone before upload", "Acceptance recorded with name, time and IP", "A reminder when a job reaches $30,000 and needs a written contract"];
 
 export default function PremiumTrust() {
   return (

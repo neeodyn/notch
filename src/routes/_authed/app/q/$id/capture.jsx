@@ -5,6 +5,7 @@ import { Camera, Check, RefreshCw, X } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import AudioWaveform from "@/components/notch/AudioWaveform";
 import ConfirmDialog from "@/components/notch/ConfirmDialog";
+import { useScreenWakeLock } from "@/hooks/use-screen-wake-lock";
 import { clearLocalCapture, loadLocalCapture, saveLocalCapture } from "@/lib/captureStore";
 import { isConnectionError } from "@/lib/saveErrors";
 import { fillQuoteFromCaptureFn, transcribeCaptureFn } from "@/lib/server-fns";
@@ -144,6 +145,10 @@ function CaptureScreen() {
     enableBeforeUnload: shouldAskBeforeLeaving,
     withResolver: true,
   });
+
+  // If the screen locks mid-walk the browser pauses the page, which can cut the
+  // recording or the upload short. Keep it awake until the walk is safely in.
+  useScreenWakeLock(!uploadError);
 
   async function handleSnapVideoFrame() {
     const video = videoRef.current;

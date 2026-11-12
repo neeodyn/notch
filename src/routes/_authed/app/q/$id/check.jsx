@@ -222,13 +222,12 @@ function CheckQuoteScreen() {
 
   async function handleCopyShareLink() {
     const shareUrl = `${window.location.origin}/q/${quote.public_token}`;
-    if (navigator.clipboard?.writeText) {
-      const ok = await navigator.clipboard
-        .writeText(shareUrl)
-        .then(() => true)
-        .catch(() => false);
-      toast.success(ok ? "Homeowner quote link copied" : shareUrl);
-    }
+    const copied = await navigator.clipboard?.writeText(shareUrl).then(
+      () => true,
+      () => false
+    );
+    if (copied) toast.success("Homeowner quote link copied");
+    else toast(`Couldn't copy from this browser. The link is ${shareUrl}`, { duration: 12000 });
   }
 
   function handleSendQuote() {

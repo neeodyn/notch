@@ -33,16 +33,21 @@ export const Route = createFileRoute("/q/$token")({
     if (!data) throw notFound();
     return data;
   },
-  head: ({ loaderData }) => ({
-    meta: [
-      {
-        title: loaderData?.business?.name
-          ? `Painting Quote — ${loaderData.business.name}`
-          : "Painting & Decorating Proposal",
-      },
-      { name: "robots", content: "noindex, nofollow" },
-    ],
-  }),
+  head: ({ loaderData }) => {
+    const painter = loaderData?.business?.name;
+    const title = painter ? `Painting Quote — ${painter}` : "Painting & Decorating Proposal";
+    // The homeowner sees this as the link preview when the quote is texted to them.
+    const description = `Your painting quote${painter ? ` from ${painter}` : ""}. See the scope, photos and total, and accept online.`;
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { name: "robots", content: "noindex, nofollow" },
+      ],
+    };
+  },
   component: PublicHomeownerQuotePage,
 });
 

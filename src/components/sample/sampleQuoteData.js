@@ -114,8 +114,8 @@ export const SAMPLE_QUOTE = {
       area_number: 1,
       url: NZ_IMAGERY.lounge,
       taken_at_s: 11.2,
-      pin_x: 0.64,
-      pin_y: 0.28,
+      pin_x: 0.52,
+      pin_y: 0.26,
     },
     {
       id: "sample-photo-2",

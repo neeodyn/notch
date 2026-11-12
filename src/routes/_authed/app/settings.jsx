@@ -332,6 +332,7 @@ function SettingsScreen() {
                 min="1.8"
                 max="6"
                 step="0.1"
+                inputMode="decimal"
                 value={defaultStudM}
                 onChange={(e) => setDefaultStudM(e.target.value)}
                 className="tabular-money mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[16px]"
@@ -346,6 +347,7 @@ function SettingsScreen() {
                 min="0"
                 max="50"
                 step="1"
+                inputMode="numeric"
                 value={openingsPct}
                 onChange={(e) => setOpeningsPct(e.target.value)}
                 className="tabular-money mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[16px]"
@@ -359,6 +361,7 @@ function SettingsScreen() {
                 type="number"
                 min="0"
                 step="25"
+                inputMode="decimal"
                 value={minCharge}
                 onChange={(e) => setMinCharge(e.target.value)}
                 className="tabular-money mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[16px]"

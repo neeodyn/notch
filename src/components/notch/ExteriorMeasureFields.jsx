@@ -12,6 +12,7 @@ export default function ExteriorMeasureFields({ item, onUpdateItem }) {
           <span className="text-[12px] font-medium text-muted-foreground">{field.label}</span>
           <input
             type="number"
+            inputMode="decimal"
             min="0"
             step="1"
             defaultValue={item[field.key] ?? ""}

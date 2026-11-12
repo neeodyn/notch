@@ -225,6 +225,7 @@ function SetupScreen() {
                 min="1.8"
                 max="6"
                 step="0.1"
+                inputMode="decimal"
                 value={defaultStudM}
                 onChange={(e) => setDefaultStudM(e.target.value)}
                 className="tabular-money h-12 w-24 rounded-xl border border-input bg-background px-3 text-right text-[18px] font-bold"
