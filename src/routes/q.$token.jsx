@@ -5,6 +5,11 @@ import { MapPin, PaintRoller, Phone, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Image } from "@/components/ui/image";
 import HomeownerAcceptBar from "@/components/notch/HomeownerAcceptBar";
+import ProposalHeader from "@/components/proposal/ProposalHeader";
+import ProposalClient from "@/components/proposal/ProposalClient";
+import ProposalGallery from "@/components/proposal/ProposalGallery";
+import ProposalScopeItem from "@/components/proposal/ProposalScopeItem";
+import ProposalTotals from "@/components/proposal/ProposalTotals";
 import {
   PREP_LABELS,
   calculateQuoteTotals,
@@ -160,7 +165,7 @@ function PublicHomeownerQuotePage() {
   return (
     <div className="premium-proposal min-h-screen bg-background text-foreground">
       {isSample && (
-        <div className="no-print border-b border-border bg-accent px-4 py-2.5 text-center text-[14px] font-medium text-accent-foreground">
+        <div className="proposal-sample-ribbon glass-panel no-print px-4 py-3 text-center text-[12px] font-medium text-muted-foreground">
           <span>
             Sample Ponsonby quote — tick the optional hallway ceiling below to watch 15% GST and the total update live.{" "}
           </span>
@@ -170,280 +175,31 @@ function PublicHomeownerQuotePage() {
         </div>
       )}
 
-      <main className="mx-auto max-w-2xl space-y-6 px-4 pb-16 pt-6 sm:px-5 sm:pt-10">
-        {/* Company Branding Header */}
-        <section className="print-card apple-surface flex flex-wrap items-center justify-between gap-4 rounded-[22px] border border-border bg-card p-5">
-          <div className="flex items-center gap-3.5">
-            {business?.logo_url ? (
-              <Image
-                src={business.logo_url}
-                alt={business.name}
-                className="h-14 w-14 rounded-2xl border border-border object-cover"
-              />
-            ) : (
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-                <PaintRoller className="h-5 w-5" />
-              </span>
-            )}
-            <div>
-              <h1 className="text-[22px] font-bold tracking-[-0.02em] text-foreground">
-                {business?.name}
-              </h1>
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px] text-muted-foreground">
-                {business?.phone && (
-                  <a
-                    href={`tel:${business.phone}`}
-                    className="inline-flex items-center gap-1.5 hover:text-foreground"
-                  >
-                    <Phone className="h-3.5 w-3.5" />
-                    <span>{business.phone}</span>
-                  </a>
-                )}
-                {business?.gst_number && <span>GST {business.gst_number}</span>}
-              </div>
-            </div>
-          </div>
+      <main className="proposal-document mx-auto max-w-3xl space-y-6 px-4 pb-16 pt-6 sm:px-5 sm:pt-10">
+        <ProposalHeader business={business} />
 
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="no-print flex min-h-[44px] items-center gap-2 rounded-xl border border-border bg-background px-3.5 text-[14px] font-semibold text-foreground hover:bg-secondary"
-          >
-            <Printer className="h-4 w-4" />
-            <span>Print / PDF</span>
-          </button>
+        <ProposalClient quote={quote} />
+
+        <ProposalGallery photos={photos} items={items} />
+
+        <section className="proposal-scope-section">
+          <div className="proposal-section-label"><span>02</span><h2>Scope of painting work</h2></div>
+          <div className="proposal-scope-surface glass-panel">{baseItems.map((item) => <ProposalScopeItem key={item.id} item={item} meta={formatRoomMeta(item, businessSettings)} currency={currency} />)}</div>
         </section>
 
-        <div className="proposal-intro"><p className="eyebrow">PREPARED WITH CARE. READY FOR YOUR HOME.</p><h2>Your space.<br />A beautiful new chapter.</h2><p>A clear scope, thoughtful finishes and every detail in one place.</p></div>
-
-        {/* Client & Property Card */}
-        <section className="print-card apple-surface rounded-[20px] border border-border bg-card p-5">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">
-            Painting specification prepared for
-          </p>
-          <p className="mt-1 text-[20px] font-bold text-foreground">
-            {quote.client_name || "Homeowner"}
-          </p>
-          {quote.address && (
-            <p className="mt-1 flex items-center gap-1.5 text-[15px] text-muted-foreground">
-              <MapPin className="h-4 w-4 shrink-0" />
-              <span>{quote.address}</span>
-            </p>
-          )}
-          {quote.notes && (
-            <p className="mt-3 border-t border-border pt-3 text-[15px] text-muted-foreground">
-              {quote.notes}
-            </p>
-          )}
-        </section>
-
-        {/* Room Photos (with optional spot pin only if set) */}
-        {photos.filter((p) => p.url).length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-[19px] font-bold tracking-[-0.015em] text-foreground">
-              Room &amp; elevation photos
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {photos
-                .filter((p) => p.url)
-                .map((photo, idx) => {
-                  const hasPin = photo.pin_x != null && photo.pin_y != null;
-                  const areaItem = items.find(
-                    (it) =>
-                      it.id === photo.item_id ||
-                      (!it.is_optional_split && it.area_number === photo.area_number)
-                  );
-                  return (
-                    <div
-                      key={photo.id || idx}
-                      className="print-card apple-surface relative aspect-[16/11] overflow-hidden rounded-[20px] border border-border bg-zinc-900"
-                    >
-                      <Image
-                        src={photo.url}
-                        alt={areaItem?.name || `Area ${photo.area_number || idx + 1}`}
-                        className="h-full w-full object-cover"
-                      />
-                      <span className="absolute left-3 top-3 rounded-lg bg-black/65 px-2.5 py-1 text-[12px] font-semibold text-white backdrop-blur-md">
-                        {areaItem?.name || `Room ${photo.area_number || idx + 1}`}
-                      </span>
-                      {hasPin && (
-                        <span
-                          style={{
-                            left: `${photo.pin_x * 100}%`,
-                            top: `${photo.pin_y * 100}%`,
-                          }}
-                          className="absolute flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-primary text-[13px] font-bold text-white shadow-md"
-                        >
-                          {photo.area_number || idx + 1}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-            </div>
-          </section>
-        )}
-
-        {/* Base Rooms & Areas */}
-        <section className="space-y-3">
-          <h2 className="text-[19px] font-bold tracking-[-0.015em] text-foreground">
-            Scope of painting work
-          </h2>
-          {baseItems.map((item) => (
-            <div
-              key={item.id}
-              className="print-card apple-surface rounded-[20px] border border-border bg-card p-4 sm:p-5"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-2.5">
-                  <span className="mt-0.5 flex h-6 min-w-[24px] shrink-0 items-center justify-center rounded-full bg-primary px-2 text-[12px] font-bold text-primary-foreground">
-                    {item.area_number}
-                  </span>
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-[17px] font-semibold text-foreground">
-                        {item.name || `Area ${item.area_number}`}
-                      </h3>
-                      {item.colour && (
-                        <span className="rounded-full border border-border bg-background px-2.5 py-0.5 text-[12px] font-medium text-foreground">
-                          {item.colour}
-                        </span>
-                      )}
-                    </div>
-                    <p className="tabular-money mt-0.5 text-[13px] font-medium text-muted-foreground">
-                      {formatRoomMeta(item, businessSettings)}
-                    </p>
-                    <p className="mt-2 text-[15px] leading-[1.48] text-muted-foreground">
-                      {item.customer_description}
-                    </p>
-                  </div>
-                </div>
-                <span className="tabular-money shrink-0 text-[18px] font-bold text-foreground">
-                  {item.price != null ? formatMoney(item.price, currency) : "TBC"}
-                </span>
-              </div>
-            </div>
-          ))}
-        </section>
-
-        {/* Optional Extras */}
         {optionalItems.length > 0 && (
-          <section className="space-y-3">
-            <div>
-              <h2 className="text-[19px] font-bold tracking-[-0.015em] text-foreground">
-                Optional extras
-              </h2>
-              <p className="text-[14px] text-muted-foreground">
-                Tick any optional areas you would like included in your job
-              </p>
-            </div>
-
-            {optionalItems.map((item) => {
-              const checked = tickedOptionalIds.includes(item.id);
-              return (
-                <label
-                  key={item.id}
-                  className={`print-card apple-surface flex cursor-pointer items-start justify-between gap-3 rounded-[20px] border p-4 transition-colors sm:p-5 ${
-                    checked
-                      ? "border-primary bg-accent/45"
-                      : "border-border bg-card"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      disabled={localStatus === "accepted"}
-                      checked={checked}
-                      onChange={() => toggleOptional(item.id)}
-                      className="mt-1 h-5 w-5 shrink-0 accent-[hsl(var(--primary))]"
-                    />
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-[17px] font-semibold text-foreground">
-                          {item.name}
-                        </p>
-                        {item.colour && (
-                          <span className="rounded-full border border-border bg-background px-2 py-0.5 text-[12px] text-foreground">
-                            {item.colour}
-                          </span>
-                        )}
-                      </div>
-                      <p className="tabular-money mt-0.5 text-[13px] text-muted-foreground">
-                        {formatRoomMeta(item, businessSettings)}
-                      </p>
-                      <p className="mt-1.5 text-[15px] text-muted-foreground">
-                        {item.customer_description}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="tabular-money shrink-0 text-[18px] font-bold text-foreground">
-                    {item.price != null
-                      ? `+${formatMoney(item.price, currency)}`
-                      : "TBC"}
-                  </span>
-                </label>
-              );
-            })}
+          <section className="proposal-option-section">
+            <div className="proposal-section-label"><span>03</span><h2>Make it yours</h2></div>
+            <p className="mb-5 text-sm text-muted-foreground">Choose any optional areas. Your total updates as you go.</p>
+            <div className="space-y-3">{optionalItems.map((item) => <ProposalScopeItem key={item.id} optional item={item} meta={formatRoomMeta(item, businessSettings)} currency={currency} checked={tickedOptionalIds.includes(item.id)} disabled={localStatus === "accepted"} onToggle={() => toggleOptional(item.id)} />)}</div>
           </section>
         )}
 
-        {/* GST & Totals Breakdown */}
-        <section className="print-card apple-surface space-y-2 rounded-[20px] border border-border bg-card p-5">
-          {!totals.pricesIncludeGst && (
-            <div className="flex justify-between text-[15px] text-muted-foreground">
-              <span>Base scope</span>
-              <span className="tabular-money">
-                {formatMoney(totals.baseItemsSum, currency)}
-              </span>
-            </div>
-          )}
-          {optionalItems.length > 0 && (
-            <div className="flex justify-between text-[15px] text-muted-foreground">
-              <span>Selected optional extras</span>
-              <span className="tabular-money">
-                {formatMoney(totals.optionalSum, currency)}
-              </span>
-            </div>
-          )}
-          {totals.minChargeApplied && (
-            <div className="flex justify-between text-[15px] text-muted-foreground">
-              <span>Minimum crew charge adjustment</span>
-              <span className="tabular-money">
-                +{formatMoney(totals.minChargeDelta, currency)}
-              </span>
-            </div>
-          )}
-          <div className="flex justify-between border-t border-border pt-2.5 text-[15px] text-muted-foreground">
-            <span>Subtotal (excl. GST)</span>
-            <span className="tabular-money font-medium text-foreground">
-              {formatMoney(totals.subtotalExclGst, currency)}
-            </span>
-          </div>
-          <div className="flex justify-between text-[15px] text-muted-foreground">
-            <span>GST ({totals.gstPctLabel}%)</span>
-            <span className="tabular-money font-medium text-foreground">
-              {formatMoney(totals.gstAmount, currency)}
-            </span>
-          </div>
-          <div className="flex justify-between border-t border-border pt-3 text-[20px] font-bold text-foreground">
-            <span>Total (incl. GST)</span>
-            <span className="tabular-money">
-              {formatMoney(totals.totalInclGst, currency)}
-            </span>
-          </div>
-          {Number(quote.deposit_pct) > 0 && (
-            <div className="flex justify-between text-[15px] font-semibold text-primary">
-              <span>Deposit upon booking ({quote.deposit_pct}%)</span>
-              <span className="tabular-money">
-                {formatMoney(totals.depositAmount, currency)}
-              </span>
-            </div>
-          )}
-        </section>
+        <ProposalTotals totals={totals} currency={currency} quote={quote} hasOptional={optionalItems.length > 0} />
 
         {/* Terms */}
         {business?.terms && (
-          <section className="print-card apple-surface rounded-[20px] border border-border bg-card p-5">
+          <section className="proposal-terms print-card">
             <h2 className="text-[15px] font-semibold text-foreground">
               Terms &amp; workmanship notes
             </h2>

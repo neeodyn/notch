@@ -4,6 +4,7 @@ import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary";
 import { NotFound } from "@/components/NotFound";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/AuthContext";
+import AmbientBackdrop from "@/components/notch/AmbientBackdrop";
 import { Base44Scripts } from "base44:document";
 import appCss from "@/index.css?url";
 
@@ -40,6 +41,7 @@ function RootComponent() {
 
   return (
     <AuthProvider>
+      <AmbientBackdrop />
       <Outlet />
       <Toaster position="top-center" />
     </AuthProvider>

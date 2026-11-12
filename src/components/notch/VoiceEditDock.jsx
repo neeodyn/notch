@@ -83,7 +83,7 @@ export default function VoiceEditDock({ onApplyVoiceEdit, isApplying }) {
         {showTypeBox && !recording && (
           <form
             onSubmit={submitTypedEdit}
-            className="w-full rounded-[18px] border border-border bg-card p-3.5 shadow-lg sm:max-w-md"
+            className="glass-panel w-full rounded-[24px] border border-border bg-card p-4 shadow-lg sm:max-w-md"
           >
             <div className="mb-2 flex items-center justify-between">
               <span className="text-[14px] font-semibold text-foreground">Say or type a change</span>
@@ -143,7 +143,7 @@ export default function VoiceEditDock({ onApplyVoiceEdit, isApplying }) {
               type="button"
               onClick={() => setShowTypeBox((v) => !v)}
               aria-label="Type a change instead of speaking"
-              className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-md hover:text-foreground"
+              className="glass-panel flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-md hover:text-foreground"
             >
               <Keyboard className="h-5 w-5" />
             </button>
@@ -153,7 +153,7 @@ export default function VoiceEditDock({ onApplyVoiceEdit, isApplying }) {
               disabled={isApplying}
               onClick={startMic}
               aria-label="Say a change"
-              className="flex h-[88px] w-[88px] flex-col items-center justify-center gap-1 rounded-full bg-primary text-primary-foreground shadow-xl transition-transform duration-200 active:scale-95 disabled:opacity-60"
+              className="voice-glass-control flex h-[88px] w-[88px] flex-col items-center justify-center gap-1 rounded-full bg-primary text-primary-foreground shadow-xl transition-transform duration-200 active:scale-95 disabled:opacity-60"
             >
               <Mic className="h-7 w-7" />
               <span className="text-[11px] font-semibold tracking-tight">
