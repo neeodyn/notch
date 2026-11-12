@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ChevronRight, Link2, MessageSquare } from "lucide-react";
+import { ChevronRight, Link2, MessageSquare, FileText } from "lucide-react";
 import { toast } from "sonner";
 import StatusPill from "@/components/notch/StatusPill";
 import { formatMoney } from "@/lib/pricing";
@@ -67,6 +67,7 @@ export default function QuoteListCard({ quote, currency = "NZD", nowMs, onFollow
           params={{ id: quote.id }}
           className="flex min-w-0 flex-1 items-center justify-between gap-3"
         >
+          <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border/50 bg-primary/5 text-primary sm:flex"><FileText size={20} strokeWidth={1.4} /></span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <p className="truncate text-[17px] font-semibold text-foreground">

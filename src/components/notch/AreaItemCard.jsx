@@ -152,11 +152,12 @@ export default function AreaItemCard({
       <div className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
+            <p className="eyebrow mb-2">{item.kind === "exterior" ? "EXTERIOR SPECIFICATION" : "ROOM SPECIFICATION"}</p>
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full bg-primary px-2 text-[12px] font-bold text-primary-foreground">
                 {item.area_number}
               </span>
-              <h3 className="text-[18px] font-semibold text-foreground">
+              <h3 className="text-[21px] font-semibold tracking-tight text-foreground">
                 {item.name || `Area ${item.area_number}`}
               </h3>
               {item.optional && (

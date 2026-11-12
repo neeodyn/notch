@@ -146,7 +146,7 @@ export default function WalkthroughDemo() {
     <section
       id="walkthrough"
       aria-label="40-second house walk demo"
-      className="apple-surface rounded-[22px] border border-border bg-card p-4 sm:p-7"
+      className="walkthrough-panel apple-surface rounded-[32px] border border-border bg-card p-4 sm:p-8"
     >
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">

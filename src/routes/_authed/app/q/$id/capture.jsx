@@ -329,7 +329,7 @@ function CaptureScreen() {
             <X className="h-5 w-5" />
           </Link>
 
-          <div className="flex items-center gap-3 rounded-full bg-black/65 px-4 py-2 backdrop-blur-md">
+          <div className="flex items-center gap-3 rounded-full border border-white/20 bg-black/35 px-4 py-2.5 backdrop-blur-2xl">
             <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
             <span className="tabular-money text-[16px] font-semibold">
               {mins}:{secs}
@@ -397,7 +397,7 @@ function CaptureScreen() {
       )}
 
       {/* Bottom Thumb-Zone Controls */}
-      <div className="relative z-10 bg-black/70 px-4 pb-6 pt-4 backdrop-blur-md safe-bottom sm:px-6">
+      <div className="relative z-10 rounded-t-[32px] border-t border-white/20 bg-black/40 px-4 pb-6 pt-5 backdrop-blur-2xl safe-bottom sm:px-6">
         {snaps.length > 0 && (
           <div className="mx-auto mb-4 flex max-w-lg gap-2.5 overflow-x-auto pb-1">
             {snaps.map((snap, idx) => (

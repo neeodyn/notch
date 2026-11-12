@@ -4,6 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { Plus, Search, Settings, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import QuoteListCard from "@/components/notch/QuoteListCard";
+import WorkspaceHeader from "@/components/notch/WorkspaceHeader";
+import WorkspaceOverview from "@/components/notch/WorkspaceOverview";
 import { createDraftQuote, generateFollowUpFn, getAppBootstrap } from "@/lib/server-fns";
 import { formatMoney } from "@/lib/pricing";
 
@@ -86,24 +88,7 @@ function QuotesListScreen() {
 
   return (
     <div className="min-h-screen bg-background pb-32 text-foreground">
-      <header className="mx-auto flex max-w-2xl items-center justify-between px-4 pt-6 sm:px-5">
-        <div>
-          {business?.name && (
-            <p className="text-[12px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">
-              {business.name}
-            </p>
-          )}
-          <h1 className="large-title text-foreground">Quotes</h1>
-        </div>
-
-        <Link
-          to="/app/settings"
-          aria-label="Settings"
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-secondary"
-        >
-          <Settings className="h-5 w-5" />
-        </Link>
-      </header>
+      <WorkspaceHeader businessName={business?.name} />
 
       <main className="mx-auto mt-5 max-w-2xl space-y-5 px-4 sm:px-5">
         {!business && (
@@ -126,33 +111,7 @@ function QuotesListScreen() {
           </div>
         )}
 
-        {/* This week summary strip */}
-        <section
-          aria-label="This week summary"
-          className="apple-surface grid grid-cols-3 gap-2.5 rounded-[18px] border border-border bg-card p-4"
-        >
-          <div>
-            <p className="text-[12px] font-medium text-muted-foreground">This week</p>
-            <p className="tabular-money mt-0.5 text-[22px] font-bold text-foreground">
-              {thisWeekQuotes.length}
-            </p>
-            <p className="text-[12px] text-muted-foreground">walked</p>
-          </div>
-          <div className="border-l border-border pl-3">
-            <p className="text-[12px] font-medium text-muted-foreground">Sent out</p>
-            <p className="tabular-money mt-0.5 text-[22px] font-bold text-foreground">
-              {weekSentCount}
-            </p>
-            <p className="text-[12px] text-muted-foreground">quotes</p>
-          </div>
-          <div className="border-l border-border pl-3">
-            <p className="text-[12px] font-medium text-muted-foreground">Accepted</p>
-            <p className="tabular-money mt-0.5 text-[20px] font-bold text-primary sm:text-[22px]">
-              {formatMoney(weekAcceptedTotal, currency)}
-            </p>
-            <p className="text-[12px] text-muted-foreground">incl. GST</p>
-          </div>
-        </section>
+        <WorkspaceOverview walked={thisWeekQuotes.length} sent={weekSentCount} acceptedTotal={weekAcceptedTotal} currency={currency} />
 
         {/* Instant Search */}
         {quotes.length > 0 && (
@@ -217,7 +176,7 @@ function QuotesListScreen() {
       </main>
 
       {/* Sticky bottom New Quote button */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-xl safe-bottom">
+      <div className="glass-dock fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-xl safe-bottom">
         <div className="mx-auto max-w-2xl px-4 pt-3 sm:px-5">
           <button
             type="button"

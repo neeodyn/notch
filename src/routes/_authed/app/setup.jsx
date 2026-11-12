@@ -259,7 +259,7 @@ function SetupScreen() {
         <PriceBookEditor value={priceBook} onChange={setPriceBook} />
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-xl safe-bottom">
+      <div className="glass-dock fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-xl safe-bottom">
         <div className="mx-auto max-w-2xl px-4 pt-3 sm:px-5">
           <button
             type="button"

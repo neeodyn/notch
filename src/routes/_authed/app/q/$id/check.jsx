@@ -377,7 +377,7 @@ function CheckQuoteScreen() {
       />
 
       {/* Sticky Total + Send Bar */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 backdrop-blur-xl safe-bottom">
+      <div className="glass-dock fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 backdrop-blur-xl safe-bottom">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
           <div>
             <p className="tabular-money text-[22px] font-bold leading-tight text-foreground">
