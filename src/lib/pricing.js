@@ -52,6 +52,20 @@ export const KIND_LABELS = {
 
 export const STARTER_PRICE_BOOK = STARTER_PAINTER_PRICE_BOOK;
 
+/**
+ * One row per surface: which measurement it uses, its price-book rate, and the
+ * note shown when it was included but never measured. Each surface has its own
+ * measurement, so one spoken figure is never reused for every surface.
+ */
+const SURFACE_MEASURES = {
+  walls: { key: "wallsM2", rateKey: "walls_m2", unit: "m²", multiplied: true, missing: "wall area not stated" },
+  ceiling: { key: "ceilingM2", rateKey: "ceiling_m2", unit: "m²", multiplied: true, missing: "ceiling area not stated" },
+  skirting: { key: "skirtingM", rateKey: "skirting_m", unit: "m", multiplied: false, missing: "skirting length not stated" },
+  weatherboards: { key: "weatherboardsM2", rateKey: "weatherboards_m2", unit: "m²", multiplied: true, missing: "weatherboard area not stated" },
+  soffits: { key: "soffitsM2", rateKey: "soffits_m2", unit: "m²", multiplied: true, missing: "soffit area not stated" },
+  fascia: { key: "fasciaM", rateKey: "fascia_m", unit: "m", multiplied: true, missing: "fascia length not stated" },
+};
+
 export function roundCents(value) {
   return Math.round((Number(value) || 0) * 100) / 100;
 }
@@ -75,7 +89,10 @@ export function fmtMetric(value) {
  *   walls_m2 = 2(L + W) * stud * (1 - openings_pct/100)
  *   ceiling_m2 = L * W
  *   skirting_m = 2(L + W)
- * Exterior uses area_m2_spoken.
+ * Exterior:
+ *   weatherboards m² = area_m2_spoken
+ *   soffits m² = soffits_m2
+ *   fascia m = fascia_m (metres), or the floor perimeter for interiors with dims
  */
 export function computeAreaMeasurements(item = {}, settings = {}) {
   const defaultStudM =
@@ -124,7 +141,15 @@ export function computeAreaMeasurements(item = {}, settings = {}) {
 
   const skirtingM = !isExterior && hasFloorDims ? perimeterM : 0;
   const exteriorM2 = isExterior ? spokenM2 : 0;
-  const fasciaM = hasFloorDims ? perimeterM : spokenM2;
+  const soffitsM2 =
+    Number(item.soffits_m2) > 0 ? roundCents(Number(item.soffits_m2)) : 0;
+  // Fascia is linear metres: never derived from a square-metre figure.
+  const fasciaM =
+    Number(item.fascia_m) > 0
+      ? roundCents(Number(item.fascia_m))
+      : !isExterior && hasFloorDims
+      ? perimeterM
+      : 0;
 
   return {
     hasFloorDims,
@@ -135,8 +160,53 @@ export function computeAreaMeasurements(item = {}, settings = {}) {
     ceilingM2,
     skirtingM,
     exteriorM2,
+    weatherboardsM2: exteriorM2,
+    soffitsM2,
     fasciaM,
   };
+}
+
+/** Surfaces on the item that have no measurement to price from. */
+export function findUnmeasuredSurfaces(item = {}, settings = {}) {
+  const meas = computeAreaMeasurements(item, settings);
+  const surfaces = Array.isArray(item.surfaces) ? item.surfaces : [];
+  return surfaces.filter(
+    (s) => SURFACE_MEASURES[s] && !(meas[SURFACE_MEASURES[s].key] > 0)
+  );
+}
+
+/**
+ * Unclear notes for unmeasured surfaces, e.g. "Exterior: soffit area not stated".
+ * Items priced by the painter (spoken or owner) are skipped unless includePriced.
+ */
+export function describeMissingMeasurements(items = [], settings = {}, { includePriced = false } = {}) {
+  const notes = [];
+  for (const item of items || []) {
+    if (!includePriced && (item.price_source === "spoken" || item.price_source === "owner")) {
+      continue;
+    }
+    const label =
+      String(item.name || "").trim() || KIND_LABELS[item.kind] || `Area ${item.area_number || 1}`;
+    for (const surf of findUnmeasuredSurfaces(item, settings)) {
+      notes.push(`${label}: ${SURFACE_MEASURES[surf].missing}`);
+    }
+  }
+  return [...new Set(notes)];
+}
+
+/** Drops measurement notes the painter has since resolved (measured, removed or renamed). */
+export function pruneResolvedMeasurementNotes(unclear = [], items = [], settings = {}) {
+  const endings = Object.values(SURFACE_MEASURES).map((m) => `: ${m.missing}`);
+  const stillMissing = new Set(
+    describeMissingMeasurements(items, settings, { includePriced: true })
+  );
+  return (unclear || []).filter(
+    (note) => !endings.some((end) => String(note).endsWith(end)) || stillMissing.has(note)
+  );
+}
+
+export function mergeUnclearNotes(...lists) {
+  return [...new Set(lists.flat().filter(Boolean))];
 }
 
 /**
@@ -169,38 +239,15 @@ export function computePriceBookFigure(item, priceBook, settings = {}) {
   let pricedAny = false;
 
   for (const surf of surfaces) {
-    if (surf === "walls") {
-      const rate = Number(priceBook.walls_m2) || 0;
-      if (rate <= 0 || meas.wallsM2 <= 0) return null;
-      raw += meas.wallsM2 * rate * prepMult * coatsMult;
-      pricedAny = true;
-    } else if (surf === "ceiling") {
-      const rate = Number(priceBook.ceiling_m2) || 0;
-      if (rate <= 0 || meas.ceilingM2 <= 0) return null;
-      raw += meas.ceilingM2 * rate * prepMult * coatsMult;
-      pricedAny = true;
-    } else if (surf === "skirting") {
-      const rate = Number(priceBook.skirting_m) || 0;
-      if (rate <= 0 || meas.skirtingM <= 0) return null;
-      raw += meas.skirtingM * rate;
-      pricedAny = true;
-    } else if (surf === "weatherboards") {
-      const rate = Number(priceBook.weatherboards_m2) || 0;
-      if (rate <= 0 || meas.exteriorM2 <= 0) return null;
-      raw += meas.exteriorM2 * rate * prepMult * coatsMult;
-      pricedAny = true;
-    } else if (surf === "soffits") {
-      const rate = Number(priceBook.soffits_m2) || 0;
-      const m2 = meas.exteriorM2 || Number(item.area_m2_spoken) || 0;
-      if (rate <= 0 || m2 <= 0) return null;
-      raw += m2 * rate * prepMult * coatsMult;
-      pricedAny = true;
-    } else if (surf === "fascia") {
-      const rate = Number(priceBook.fascia_m) || 0;
-      if (rate <= 0 || meas.fasciaM <= 0) return null;
-      raw += meas.fasciaM * rate * prepMult * coatsMult;
-      pricedAny = true;
-    }
+    const spec = SURFACE_MEASURES[surf];
+    if (!spec) continue;
+    const qty = meas[spec.key] || 0;
+    // Unmeasured surfaces are skipped here and reported as an unclear note.
+    if (qty <= 0) continue;
+    const rate = Number(priceBook[spec.rateKey]) || 0;
+    if (rate <= 0) return null;
+    raw += spec.multiplied ? qty * rate * prepMult * coatsMult : qty * rate;
+    pricedAny = true;
   }
 
   if (doors > 0) {
@@ -361,6 +408,8 @@ export function expandAreasToQuoteItems(areas = [], priceBook = null, settings =
           stud_m: rawArea.stud_m != null ? Number(rawArea.stud_m) : null,
           area_m2_spoken:
             rawArea.area_m2_spoken != null ? Number(rawArea.area_m2_spoken) : null,
+          soffits_m2: rawArea.soffits_m2 != null ? Number(rawArea.soffits_m2) : null,
+          fascia_m: rawArea.fascia_m != null ? Number(rawArea.fascia_m) : null,
           surfaces: baseSurfacesToUse,
           doors: rawArea.doors ?? 0,
           windows: rawArea.windows ?? 0,
@@ -402,6 +451,8 @@ export function expandAreasToQuoteItems(areas = [], priceBook = null, settings =
             rawArea.optional_area_m2_spoken != null
               ? Number(rawArea.optional_area_m2_spoken)
               : null,
+          soffits_m2: rawArea.soffits_m2 != null ? Number(rawArea.soffits_m2) : null,
+          fascia_m: rawArea.fascia_m != null ? Number(rawArea.fascia_m) : null,
           surfaces: optionalSurfaces,
           doors: 0,
           windows: 0,
@@ -603,18 +654,10 @@ export function formatSurfaceMetricsList(item, settings = {}) {
   const parts = [];
 
   for (const s of surfaces) {
-    if (s === "walls" && meas.wallsM2 > 0) {
-      parts.push(`walls ${fmtMetric(meas.wallsM2)} m²`);
-    } else if (s === "ceiling" && meas.ceilingM2 > 0) {
-      parts.push(`ceiling ${fmtMetric(meas.ceilingM2)} m²`);
-    } else if (s === "skirting" && meas.skirtingM > 0) {
-      parts.push(`skirting ${fmtMetric(meas.skirtingM)} m`);
-    } else if (s === "weatherboards" && meas.exteriorM2 > 0) {
-      parts.push(`weatherboards ${fmtMetric(meas.exteriorM2)} m²`);
-    } else if (s === "soffits" && (meas.exteriorM2 > 0 || Number(item.area_m2_spoken) > 0)) {
-      parts.push(`soffits ${fmtMetric(meas.exteriorM2 || item.area_m2_spoken)} m²`);
-    } else if (s === "fascia" && meas.fasciaM > 0) {
-      parts.push(`fascia ${fmtMetric(meas.fasciaM)} m`);
+    const spec = SURFACE_MEASURES[s];
+    const qty = spec ? meas[spec.key] : 0;
+    if (spec && qty > 0) {
+      parts.push(`${s} ${fmtMetric(qty)} ${spec.unit}`);
     } else {
       parts.push(s);
     }

@@ -10,6 +10,9 @@ import ProposalClient from "@/components/proposal/ProposalClient";
 import ProposalGallery from "@/components/proposal/ProposalGallery";
 import ProposalScopeItem from "@/components/proposal/ProposalScopeItem";
 import ProposalTotals from "@/components/proposal/ProposalTotals";
+import ProposalTerms from "@/components/proposal/ProposalTerms";
+import ProposalAcceptanceRecord from "@/components/proposal/ProposalAcceptanceRecord";
+import { quoteReference } from "@/lib/legal";
 import {
   PREP_LABELS,
   calculateQuoteTotals,
@@ -84,7 +87,28 @@ function PublicHomeownerQuotePage() {
     setLocalStatus(quote.status);
     setLocalAcceptedName(quote.accepted_name || "");
     setLocalAcceptedAt(quote.accepted_at || null);
-  }, [quote.status, quote.accepted_name, quote.accepted_at]);
+    if (quote.status === "accepted" || quote.status === "declined") {
+      setTickedOptionalIds(quote.selected_optional_ids || []);
+    }
+  }, [quote.status, quote.accepted_name, quote.accepted_at, quote.selected_optional_ids]);
+
+  const isLocked = localStatus === "accepted" || localStatus === "declined";
+
+  function applyResponse(res) {
+    setLocalStatus(res.status);
+    if (res.status === "accepted") {
+      setLocalAcceptedName(res.accepted_name || "");
+      setLocalAcceptedAt(res.accepted_at || null);
+    }
+    if (res.locked) {
+      setTickedOptionalIds(res.selected_optional_ids || []);
+      toast(
+        res.status === "accepted"
+          ? "This quote has already been accepted."
+          : "This quote was declined. Contact your painter for a revised quote."
+      );
+    }
+  }
 
   useEffect(() => {
     if (isSample || isOwnerViewing) return;
@@ -110,7 +134,7 @@ function PublicHomeownerQuotePage() {
   });
 
   function toggleOptional(itemId) {
-    if (localStatus === "accepted") return;
+    if (isLocked) return;
     setTickedOptionalIds((prev) =>
       prev.includes(itemId)
         ? prev.filter((id) => id !== itemId)
@@ -130,11 +154,9 @@ function PublicHomeownerQuotePage() {
           selectedOptionalIds: tickedOptionalIds,
         },
       });
-      setLocalStatus("accepted");
-      setLocalAcceptedName(res.accepted_name || acceptedName);
-      setLocalAcceptedAt(res.accepted_at || new Date().toISOString());
+      applyResponse(res);
       if (!isSample) await router.invalidate();
-      toast.success("Quote accepted. Thank you!");
+      if (!res.locked) toast.success("Quote accepted. Thank you!");
     } catch (err) {
       toast.error(err?.message || "Could not accept quote");
     } finally {
@@ -145,16 +167,16 @@ function PublicHomeownerQuotePage() {
   async function handleDecline() {
     setSubmitting(true);
     try {
-      await runRespond({
+      const res = await runRespond({
         data: {
           token: quote.public_token,
           action: "decline",
           selectedOptionalIds: tickedOptionalIds,
         },
       });
-      setLocalStatus("declined");
+      applyResponse(res);
       if (!isSample) await router.invalidate();
-      toast("Quote marked declined");
+      if (!res.locked) toast("Quote declined");
     } catch (err) {
       toast.error(err?.message || "Could not update quote");
     } finally {
@@ -191,23 +213,23 @@ function PublicHomeownerQuotePage() {
           <section className="proposal-option-section">
             <div className="proposal-section-label"><span>03</span><h2>Make it yours</h2></div>
             <p className="mb-5 text-sm text-muted-foreground">Choose any optional areas. Your total updates as you go.</p>
-            <div className="space-y-3">{optionalItems.map((item) => <ProposalScopeItem key={item.id} optional item={item} meta={formatRoomMeta(item, businessSettings)} currency={currency} checked={tickedOptionalIds.includes(item.id)} disabled={localStatus === "accepted"} onToggle={() => toggleOptional(item.id)} />)}</div>
+            <div className="space-y-3">{optionalItems.map((item) => <ProposalScopeItem key={item.id} optional item={item} meta={formatRoomMeta(item, businessSettings)} currency={currency} checked={tickedOptionalIds.includes(item.id)} disabled={isLocked} onToggle={() => toggleOptional(item.id)} />)}</div>
           </section>
         )}
 
         <ProposalTotals totals={totals} currency={currency} quote={quote} hasOptional={optionalItems.length > 0} />
 
-        {/* Terms */}
-        {business?.terms && (
-          <section className="proposal-terms print-card">
-            <h2 className="text-[15px] font-semibold text-foreground">
-              Terms &amp; workmanship notes
-            </h2>
-            <p className="mt-1.5 text-[14px] leading-[1.52] text-muted-foreground">
-              {business.terms}
-            </p>
-          </section>
+        {localStatus === "accepted" && (
+          <ProposalAcceptanceRecord
+            name={localAcceptedName}
+            acceptedAt={localAcceptedAt}
+            total={totals.totalInclGst}
+            currency={currency}
+            reference={quoteReference(quote)}
+          />
         )}
+
+        <ProposalTerms terms={business?.terms} currency={currency} />
       </main>
 
       <HomeownerAcceptBar
@@ -218,6 +240,7 @@ function PublicHomeownerQuotePage() {
         depositPct={quote.deposit_pct || 0}
         depositAmount={totals.depositAmount}
         currency={currency}
+        businessName={business?.name}
         onAccept={handleAccept}
         onDecline={handleDecline}
         submitting={submitting}

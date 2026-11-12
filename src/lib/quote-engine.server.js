@@ -4,9 +4,12 @@ import {
   ALL_SURFACES,
   SURFACE_LABELS,
   calculateQuoteTotals,
+  describeMissingMeasurements,
   expandAreasToQuoteItems,
   formatMoney,
+  mergeUnclearNotes,
   priceSingleItem,
+  pruneResolvedMeasurementNotes,
 } from "@/lib/pricing";
 
 export const PAINTER_VOCAB_PROMPT =
@@ -52,6 +55,24 @@ export function getTrialDaysLeft(business) {
   if (!Number.isFinite(startedMs)) return 7;
   const elapsedDays = (Date.now() - startedMs) / (24 * 60 * 60 * 1000);
   return Math.max(0, Math.ceil(7 - elapsedDays));
+}
+
+/** A homeowner's accept or decline is final: later responses change nothing. */
+export function isQuoteResponseLocked(quote) {
+  return quote?.status === "accepted" || quote?.status === "declined";
+}
+
+export function lockedQuoteResponse(quote) {
+  return {
+    ok: true,
+    locked: true,
+    status: quote.status,
+    accepted_at: quote.accepted_at || null,
+    accepted_name: quote.accepted_name || null,
+    declined_at: quote.declined_at || null,
+    total: quote.total_incl_gst || quote.total || 0,
+    selected_optional_ids: quote.selected_optional_ids || [],
+  };
 }
 
 export function getBusinessSettings(business) {
@@ -177,6 +198,8 @@ const FillAreaSchema = z.object({
   width_m: z.number().nullable().optional(),
   stud_m: z.number().nullable().optional(),
   area_m2_spoken: z.number().nullable().optional(),
+  soffits_m2: z.number().nullable().optional(),
+  fascia_m: z.number().nullable().optional(),
   surfaces: z.array(z.string()).nullable().optional(),
   optional_surfaces: z.array(z.string()).nullable().optional(),
   doors: z.number().nullable().optional(),
@@ -232,6 +255,8 @@ const FILL_JSON_SCHEMA = {
           width_m: { type: ["number", "null"] },
           stud_m: { type: ["number", "null"] },
           area_m2_spoken: { type: ["number", "null"] },
+          soffits_m2: { type: ["number", "null"] },
+          fascia_m: { type: ["number", "null"] },
           surfaces: {
             type: "array",
             items: {
@@ -289,7 +314,8 @@ STRICT RULES:
 1. Output JSON only matching the schema: { client, areas[], deposit_pct, notes, unclear[] }.
 2. Fill ONLY what was said. Never invent dimensions or prices.
 3. Dimensions in metres: "five by four" => length_m: 5, width_m: 4; "stud two-four" => stud_m: 2.4; "eight by one-two" => length_m: 8, width_m: 1.2.
-4. A stated total area ("about one-eighty square metres") goes in area_m2_spoken: 180.
+4. A stated total area ("about one-eighty square metres") goes in area_m2_spoken: 180. For an exterior, area_m2_spoken is the weatherboard / wall cladding area only.
+4b. Soffits and fascia are measured separately. A spoken soffit area ("soffits about thirty square metres") goes in soffits_m2: 30. A spoken fascia length in metres ("sixty metres of fascia") goes in fascia_m: 60. NEVER copy area_m2_spoken into soffits_m2 or fascia_m, and NEVER put square metres in fascia_m. If soffits or fascia are included but not measured, include them in surfaces and leave soffits_m2 / fascia_m null.
 5. If stud height is NOT explicitly said for an interior room, set stud_m: null AND add a short note in unclear[] (e.g. "Hallway: stud height not spoken").
 6. Copy spoken prices EXACTLY as numbers ("eleven hundred" = 1100, "four hundred" = 400). NEVER estimate or guess a price! If no price was spoken, set spoken_price: null.
 7. One object per room or exterior area in spoken order. Set start_segment to the integer index <i> from [s<i> m:ss] where that room starts.
@@ -406,6 +432,8 @@ export async function saveVersionSnapshot(base44, quoteId, reason) {
         width_m: it.width_m,
         stud_m: it.stud_m,
         area_m2_spoken: it.area_m2_spoken,
+        soffits_m2: it.soffits_m2 ?? null,
+        fascia_m: it.fascia_m ?? null,
         surfaces: it.surfaces || [],
         doors: it.doors || 0,
         windows: it.windows || 0,
@@ -487,6 +515,8 @@ const ALLOWED_AREA_FIELDS = new Set([
   "width_m",
   "stud_m",
   "area_m2_spoken",
+  "soffits_m2",
+  "fascia_m",
   "surfaces",
   "optional_surfaces",
   "doors",
@@ -563,6 +593,8 @@ export async function applyVoiceEditWithRetry({
     width_m: it.width_m,
     stud_m: it.stud_m,
     area_m2_spoken: it.area_m2_spoken,
+    soffits_m2: it.soffits_m2 ?? null,
+    fascia_m: it.fascia_m ?? null,
     surfaces: it.surfaces,
     doors: it.doors,
     windows: it.windows,
@@ -599,12 +631,13 @@ STRICT RULES:
 1. Return JSON { "changes": [...], "unclear": [...] }.
 2. Ops allowed:
    - { "op": "set", "area": <number or room name or null for quote-level>, "field": "<field>", "value": <value> }
-   - { "op": "add_area", "value": { "name", "kind", "length_m", "width_m", "stud_m", "area_m2_spoken", "surfaces", "coats", "prep", "colour", "spoken_price", "optional", "customer_description" } }
+   - { "op": "add_area", "value": { "name", "kind", "length_m", "width_m", "stud_m", "area_m2_spoken", "soffits_m2", "fascia_m", "surfaces", "coats", "prep", "colour", "spoken_price", "optional", "customer_description" } }
    - { "op": "remove_area", "area": <number or room name> }
 3. Areas can be referenced by number (1, 2) OR by room name ("Lounge", "Hallway", "Hallway — Ceiling").
 4. Change ONLY what was asked. Never alter other rooms or fields.
 5. Quote-level fields (set area: null): client_name, client_phone, client_email, address, deposit_pct, notes.
-6. Area-level fields: name, kind, length_m, width_m, stud_m, area_m2_spoken, surfaces, optional_surfaces, doors, windows, coats, prep, prep_notes, colour, spoken_price, optional, customer_description.
+6. Area-level fields: name, kind, length_m, width_m, stud_m, area_m2_spoken, soffits_m2, fascia_m, surfaces, optional_surfaces, doors, windows, coats, prep, prep_notes, colour, spoken_price, optional, customer_description.
+6b. area_m2_spoken is the weatherboard / wall area. "Soffits are thirty square metres" sets soffits_m2: 30. "Fascia is sixty metres" sets fascia_m: 60 (linear metres). Never copy one measurement into another field.
 7. When the painter states a new price ("hallway is four fifty"), set field: "spoken_price", value: 450. Copy spoken numbers verbatim; never invent prices.
 8. If the painter asks to make a specific surface optional (e.g. "make lounge ceiling optional"), set field: "optional_surfaces", value: ["ceiling"].
 9. Anything ambiguous goes into unclear[] with NO change applied for that ambiguous part.`;
@@ -637,6 +670,7 @@ STRICT RULES:
   const changedFields = [];
   const quotePatch = {};
   let workingItems = [...items];
+  const touchedIds = new Set();
 
   for (const change of parsed.changes) {
     if (
@@ -659,6 +693,7 @@ STRICT RULES:
       const target = { ...workingItems[idx] };
       const areaNum = target.area_number;
       const field = change.field;
+      touchedIds.add(target.id);
 
       if (field === "spoken_price" || field === "price") {
         const num = change.value == null ? null : Number(change.value);
@@ -719,6 +754,7 @@ STRICT RULES:
             );
             const createdOpt = await base44.entities.QuoteItem.create(optDraft);
             workingItems.push(createdOpt);
+            touchedIds.add(createdOpt.id);
           }
           changedFields.push(`area:${areaNum}:surfaces`);
         }
@@ -749,6 +785,7 @@ STRICT RULES:
           quote_id: quote.id,
         });
         workingItems.push(created);
+        touchedIds.add(created.id);
       }
       changedFields.push(`area:${nextNum}:added`);
     } else if (change.op === "remove_area" && change.area != null) {
@@ -765,9 +802,18 @@ STRICT RULES:
     }
   }
 
-  if (parsed.unclear.length > 0) {
-    quotePatch.unclear = [...(quote.unclear || []), ...parsed.unclear];
-  }
+  quotePatch.unclear = pruneResolvedMeasurementNotes(
+    mergeUnclearNotes(
+      quote.unclear || [],
+      parsed.unclear,
+      describeMissingMeasurements(
+        workingItems.filter((it) => touchedIds.has(it.id)),
+        bizSettings
+      )
+    ),
+    workingItems,
+    bizSettings
+  );
 
   const totals = calculateQuoteTotals({
     items: workingItems,

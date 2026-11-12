@@ -3,8 +3,10 @@ import { z } from "zod";
 import { requireUserRoute } from "@/lib/auth-middleware";
 import {
   calculateQuoteTotals,
+  describeMissingMeasurements,
   expandAreasToQuoteItems,
   matchPhotosToItems,
+  mergeUnclearNotes,
 } from "@/lib/pricing";
 import {
   extractQuoteStructureWithRetry,
@@ -102,7 +104,10 @@ export const Route = createFileRoute("/api/fill")({
           address: extracted.client?.address || quote.address || "",
           deposit_pct: depositPct,
           notes: extracted.notes || quote.notes || "",
-          unclear: extracted.unclear || [],
+          unclear: mergeUnclearNotes(
+            extracted.unclear || [],
+            describeMissingMeasurements(createdItems, bizSettings)
+          ),
           subtotal_excl_gst: totals.subtotalExclGst,
           gst_amount: totals.gstAmount,
           total_incl_gst: totals.totalInclGst,

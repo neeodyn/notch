@@ -6,10 +6,13 @@ import { toast } from "sonner";
 import AreaItemCard from "@/components/notch/AreaItemCard";
 import CheckAlertBanner from "@/components/notch/CheckAlertBanner";
 import ClientDetailsCard from "@/components/notch/ClientDetailsCard";
+import SnapPhotoStrip from "@/components/notch/SnapPhotoStrip";
 import StatusPill from "@/components/notch/StatusPill";
 import UpgradeTrialSheet from "@/components/notch/UpgradeTrialSheet";
 import VoiceEditDock from "@/components/notch/VoiceEditDock";
 import { calculateQuoteTotals, formatMoney } from "@/lib/pricing";
+import { listPhotoTargets, orderPhotosBySnap, resolvePhotoTarget } from "@/lib/photos";
+import { RESIDENTIAL_CONTRACT_THRESHOLD } from "@/lib/legal";
 import {
   addOrDeleteQuoteItemFn,
   attachAreaPhotoFn,
@@ -55,6 +58,9 @@ function CheckQuoteScreen() {
     default_stud_m: business?.default_stud_m ?? 2.4,
     openings_pct: business?.openings_pct ?? 10,
   };
+
+  const orderedPhotos = orderPhotosBySnap(photos);
+  const photoTargets = listPhotoTargets(items);
 
   const totals = calculateQuoteTotals({
     items,
@@ -124,6 +130,23 @@ function CheckQuoteScreen() {
       data: { quoteId: quote.id, itemId, areaNumber, fileUri },
     });
     await router.invalidate({ sync: true });
+  }
+
+  async function handleMovePhoto(photo, target) {
+    try {
+      await runAttachPhoto({
+        data: {
+          quoteId: quote.id,
+          photoId: photo.id,
+          itemId: target.itemId,
+          areaNumber: target.areaNumber,
+        },
+      });
+      await router.invalidate({ sync: true });
+      toast.success(`Photo ${photo.snap_number} moved to ${target.name}`);
+    } catch (err) {
+      toast.error(err?.message || "Could not move photo");
+    }
   }
 
   async function handleUndo(versionId) {
@@ -280,6 +303,13 @@ function CheckQuoteScreen() {
           onSavePatch={handleSaveClientPatch}
         />
 
+        {/* Photos in snap order */}
+        <SnapPhotoStrip
+          photos={orderedPhotos}
+          targets={photoTargets}
+          onMovePhoto={handleMovePhoto}
+        />
+
         {/* Rooms & Areas */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
@@ -307,10 +337,8 @@ function CheckQuoteScreen() {
             </div>
           ) : (
             items.map((item) => {
-              const matchingPhotos = photos.filter(
-                (p) =>
-                  p.item_id === item.id ||
-                  (!p.item_id && p.area_number === item.area_number)
+              const matchingPhotos = orderedPhotos.filter(
+                (p) => resolvePhotoTarget(p, photoTargets)?.itemId === item.id
               );
               return (
                 <AreaItemCard
@@ -325,6 +353,8 @@ function CheckQuoteScreen() {
                   onSplitOptionalCeiling={handleSplitOptionalCeiling}
                   onMovePin={handleMovePin}
                   onAttachPhoto={handleAttachPhoto}
+                  photoTargets={photoTargets}
+                  onMovePhoto={handleMovePhoto}
                 />
               );
             })
@@ -366,6 +396,11 @@ function CheckQuoteScreen() {
                 {formatMoney(totals.depositAmount, currency)}
               </span>
             </div>
+          )}
+          {totals.totalInclGst >= RESIDENTIAL_CONTRACT_THRESHOLD && (
+            <p className="border-t border-border pt-2.5 text-[13px] leading-snug text-muted-foreground">
+              Residential jobs of $30,000 or more incl. GST need a written contract, plus the prescribed checklist and disclosure statement, under the Building Act 2004.
+            </p>
           )}
         </section>
       </main>

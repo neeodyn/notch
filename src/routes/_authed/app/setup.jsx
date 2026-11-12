@@ -7,6 +7,7 @@ import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
 import PriceBookEditor from "@/components/notch/PriceBookEditor";
 import { getAppBootstrap, saveBusinessProfile } from "@/lib/server-fns";
+import { DEFAULT_PAINTING_TERMS } from "@/lib/legal";
 
 export const Route = createFileRoute("/_authed/app/setup")({
   head: () => ({ meta: [{ title: "Business setup — Notch" }] }),
@@ -71,9 +72,7 @@ function SetupScreen() {
           default_stud_m: Number(defaultStudM) || 2.4,
           openings_pct: business?.openings_pct ?? 10,
           min_charge: business?.min_charge || 0,
-          terms:
-            business?.terms ||
-            "Quote valid for 30 days. Preparation includes sugar soap wash, stopping, sanding, and premium Resene or Dulux coatings. Final colours confirmed before start.",
+          terms: business?.terms || DEFAULT_PAINTING_TERMS,
           price_book: skipBook ? null : priceBook,
         },
       });
@@ -257,6 +256,12 @@ function SetupScreen() {
 
         {/* Optional Painter Price Book */}
         <PriceBookEditor value={priceBook} onChange={setPriceBook} />
+
+        <p className="text-center text-[13px] leading-snug text-muted-foreground">
+          By continuing you agree to the Notch{" "}
+          <Link to="/terms" target="_blank" className="text-primary hover:underline">Terms of Use</Link> and{" "}
+          <Link to="/privacy" target="_blank" className="text-primary hover:underline">Privacy Policy</Link>.
+        </p>
       </main>
 
       <div className="glass-dock fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-xl safe-bottom">

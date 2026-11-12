@@ -35,7 +35,16 @@
       "type": "number"
     },
     "area_m2_spoken": {
-      "type": "number"
+      "type": "number",
+      "description": "Spoken total area in m\u00b2. For exteriors this is the weatherboard / wall cladding area."
+    },
+    "soffits_m2": {
+      "type": "number",
+      "description": "Optional soffit area in m\u00b2, measured separately from area_m2_spoken"
+    },
+    "fascia_m": {
+      "type": "number",
+      "description": "Optional fascia length in linear metres"
     },
     "surfaces": {
       "type": "array",

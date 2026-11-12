@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { Image } from "@/components/ui/image";
 import PriceBookEditor from "@/components/notch/PriceBookEditor";
 import { getAppBootstrap, saveBusinessProfile } from "@/lib/server-fns";
+import { DEFAULT_PAINTING_TERMS } from "@/lib/legal";
 
 export const Route = createFileRoute("/_authed/app/settings")({
   head: () => ({ meta: [{ title: "Settings — Notch" }] }),
@@ -276,6 +277,9 @@ function SettingsScreen() {
                 placeholder="128-492-017"
                 className="tabular-money mt-1 h-12 w-full rounded-xl border border-input bg-background px-3.5 text-[16px]"
               />
+              <span className="mt-1.5 block text-[12px] leading-snug text-muted-foreground">
+                Shows on every quote. Only charge GST if you're registered for GST with Inland Revenue.
+              </span>
             </label>
             <label className="block">
               <span className="text-[14px] font-medium text-muted-foreground">
@@ -366,17 +370,32 @@ function SettingsScreen() {
             </label>
           </div>
 
-          <label className="block">
-            <span className="text-[14px] font-medium text-muted-foreground">
-              Proposal terms &amp; workmanship notes
-            </span>
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="proposal-terms" className="text-[14px] font-medium text-muted-foreground">
+                Proposal terms &amp; workmanship notes
+              </label>
+              {terms.trim() !== DEFAULT_PAINTING_TERMS && (
+                <button
+                  type="button"
+                  onClick={() => setTerms(DEFAULT_PAINTING_TERMS)}
+                  className="min-h-[36px] shrink-0 text-[13px] font-medium text-primary hover:underline"
+                >
+                  Use standard NZ terms
+                </button>
+              )}
+            </div>
             <textarea
-              rows={3}
+              id="proposal-terms"
+              rows={8}
               value={terms}
               onChange={(e) => setTerms(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-input bg-background p-3 text-[15px]"
+              className="mt-1 w-full rounded-xl border border-input bg-background p-3 text-[15px] leading-relaxed"
             />
-          </label>
+            <p className="mt-1.5 text-[12px] leading-snug text-muted-foreground">
+              Shown on every quote, with the date issued, a 30-day validity and a note that your client's consumer rights still apply.
+            </p>
+          </div>
         </section>
 
         <PriceBookEditor value={priceBook} onChange={setPriceBook} />

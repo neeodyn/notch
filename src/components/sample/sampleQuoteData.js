@@ -1,3 +1,6 @@
+import { DEFAULT_PAINTING_TERMS } from "@/lib/legal";
+import { NZ_IMAGERY } from "@/lib/nzImagery";
+
 export const SAMPLE_QUOTE_TOKEN = "ponsonby-kauri-villa-2026";
 
 export const SAMPLE_BUSINESS = {
@@ -11,12 +14,12 @@ export const SAMPLE_BUSINESS = {
   default_stud_m: 2.4,
   openings_pct: 10,
   min_charge: 450,
-  terms:
-    "Quote valid for 30 days. Preparation includes sugar soap wash, stopping nail holes and minor cracks, dust-extracted sanding, spot priming, and two coats of premium Resene SpaceCote Low Sheen on walls. Final colour schedule confirmed prior to start.",
+  terms: DEFAULT_PAINTING_TERMS,
 };
 
 export const SAMPLE_QUOTE = {
   id: "sample-quote",
+  reference: "Q-K14PON",
   public_token: SAMPLE_QUOTE_TOKEN,
   client_name: "Sarah Miller",
   client_phone: "021 555 0134",
@@ -109,7 +112,7 @@ export const SAMPLE_QUOTE = {
       id: "sample-photo-1",
       item_id: "sample-area-1",
       area_number: 1,
-      url: "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=80",
+      url: NZ_IMAGERY.lounge,
       taken_at_s: 11.2,
       pin_x: 0.64,
       pin_y: 0.28,
@@ -118,7 +121,7 @@ export const SAMPLE_QUOTE = {
       id: "sample-photo-2",
       item_id: "sample-area-2",
       area_number: 2,
-      url: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80",
+      url: NZ_IMAGERY.hallway,
       taken_at_s: 25.4,
       pin_x: null,
       pin_y: null,

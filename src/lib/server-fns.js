@@ -3,13 +3,15 @@ import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth-middleware";
 import {
-  ALL_SURFACES,
   SURFACE_LABELS,
   calculateQuoteTotals,
+  describeMissingMeasurements,
   expandAreasToQuoteItems,
   formatMoney,
   matchPhotosToItems,
+  mergeUnclearNotes,
   priceSingleItem,
+  pruneResolvedMeasurementNotes,
 } from "@/lib/pricing";
 import {
   applyVoiceEditWithRetry,
@@ -18,12 +20,15 @@ import {
   generatePublicToken,
   getBusinessSettings,
   getTrialDaysLeft,
+  isQuoteResponseLocked,
   isTrialExpired,
+  lockedQuoteResponse,
   notifyOwnerByEmail,
   saveVersionSnapshot,
   signFileUriIfNeeded,
   transcribeAudioOnServer,
 } from "@/lib/quote-engine.server";
+import { DEFAULT_PAINTING_TERMS } from "@/lib/legal";
 import {
   SAMPLE_BUSINESS,
   SAMPLE_QUOTE,
@@ -181,8 +186,7 @@ export const createDraftQuote = createServerFn({ method: "POST" })
         default_stud_m: 2.4,
         openings_pct: 10,
         min_charge: 0,
-        terms:
-          "Quote valid for 30 days. Standard preparation includes sugar soap wash, filling minor imperfections, sanding, and premium Resene or Dulux finishes. Final colour selection to be confirmed prior to commencement.",
+        terms: DEFAULT_PAINTING_TERMS,
         price_book: null,
         plan: "trial",
         billing_interval: "monthly",
@@ -405,7 +409,10 @@ export const fillQuoteFromCaptureFn = createServerFn({ method: "POST" })
       address: extracted.client?.address || quote.address || "",
       deposit_pct: depositPct,
       notes: extracted.notes || quote.notes || "",
-      unclear: extracted.unclear || [],
+      unclear: mergeUnclearNotes(
+        extracted.unclear || [],
+        describeMissingMeasurements(createdItems, bizSettings)
+      ),
       ...serializeQuoteTotals(totals),
     });
 
@@ -481,6 +488,8 @@ const UpdateQuoteItemSchema = z.object({
     width_m: z.number().nullable().optional(),
     stud_m: z.number().nullable().optional(),
     area_m2_spoken: z.number().nullable().optional(),
+    soffits_m2: z.number().min(0).max(100000).nullable().optional(),
+    fascia_m: z.number().min(0).max(100000).nullable().optional(),
     surfaces: z.array(z.string()).optional(),
     doors: z.number().int().min(0).max(50).optional(),
     windows: z.number().int().min(0).max(50).optional(),
@@ -531,6 +540,8 @@ export const updateQuoteItemFn = createServerFn({ method: "POST" })
       width_m: repriced.width_m,
       stud_m: repriced.stud_m,
       area_m2_spoken: repriced.area_m2_spoken,
+      soffits_m2: repriced.soffits_m2 ?? null,
+      fascia_m: repriced.fascia_m ?? null,
       surfaces: repriced.surfaces,
       doors: repriced.doors,
       windows: repriced.windows,
@@ -560,7 +571,14 @@ export const updateQuoteItemFn = createServerFn({ method: "POST" })
       depositPct: quote.deposit_pct || 0,
     });
 
-    await base44.entities.Quote.update(quote.id, serializeQuoteTotals(totals));
+    await base44.entities.Quote.update(quote.id, {
+      ...serializeQuoteTotals(totals),
+      unclear: pruneResolvedMeasurementNotes(
+        quote.unclear,
+        refreshedItems.items || [],
+        bizSettings
+      ),
+    });
     return { ok: true };
   });
 
@@ -681,7 +699,14 @@ export const addOrDeleteQuoteItemFn = createServerFn({ method: "POST" })
       depositPct: quote.deposit_pct || 0,
     });
 
-    await base44.entities.Quote.update(quote.id, serializeQuoteTotals(totals));
+    await base44.entities.Quote.update(quote.id, {
+      ...serializeQuoteTotals(totals),
+      unclear: pruneResolvedMeasurementNotes(
+        quote.unclear,
+        afterPage.items || [],
+        bizSettings
+      ),
+    });
     return { ok: true };
   });
 
@@ -702,18 +727,41 @@ export const updatePhotoPinFn = createServerFn({ method: "POST" })
     });
   });
 
-const AttachPhotoSchema = z.object({
-  quoteId: z.string().min(1).max(120),
-  itemId: z.string().max(120).optional().default(""),
-  areaNumber: z.number().int().min(1),
-  fileUri: z.string().min(1).max(500),
-});
+const AttachPhotoSchema = z
+  .object({
+    quoteId: z.string().min(1).max(120),
+    itemId: z.string().max(120).optional().default(""),
+    areaNumber: z.number().int().min(1),
+    fileUri: z.string().min(1).max(500).optional(),
+    photoId: z.string().min(1).max(120).optional(),
+  })
+  .refine((d) => Boolean(d.fileUri || d.photoId), {
+    message: "Choose a photo to attach or move.",
+  });
 
-export const attachTreePhotoFn = createServerFn({ method: "POST" })
+/**
+ * Attaches a new upload (fileUri) to an area, or moves an existing photo
+ * (photoId) to another area. A move keeps the photo's snap order and pin.
+ */
+export const attachAreaPhotoFn = createServerFn({ method: "POST" })
   .middleware([requireUser])
   .inputValidator((input) => AttachPhotoSchema.parse(input))
   .handler(async ({ data, context }) => {
     const base44 = context.getBase44();
+    if (data.itemId) {
+      const item = await base44.entities.QuoteItem.get(data.itemId);
+      if (item.quote_id !== data.quoteId) throw new Error("That area is not on this quote.");
+    }
+
+    if (data.photoId) {
+      const photo = await base44.entities.Photo.get(data.photoId);
+      if (photo.quote_id !== data.quoteId) throw new Error("That photo is not on this quote.");
+      return await base44.entities.Photo.update(photo.id, {
+        item_id: data.itemId || "",
+        area_number: data.areaNumber,
+      });
+    }
+
     return await base44.entities.Photo.create({
       quote_id: data.quoteId,
       item_id: data.itemId || "",
@@ -725,7 +773,6 @@ export const attachTreePhotoFn = createServerFn({ method: "POST" })
     });
   });
 
-export const attachAreaPhotoFn = attachTreePhotoFn;
 
 const VoiceEditSchema = z.object({
   quoteId: z.string().min(1).max(120),
@@ -1003,6 +1050,7 @@ export const getPublicQuoteByTokenFn = createServerFn({ method: "GET" })
         total: quote.total_incl_gst || quote.total || 0,
         accepted_at: quote.accepted_at || null,
         accepted_name: quote.accepted_name || null,
+        sent_at: quote.sent_at || null,
         created_date: quote.created_date,
       },
       items: (itemsPage.items || []).map((it) => ({
@@ -1014,6 +1062,8 @@ export const getPublicQuoteByTokenFn = createServerFn({ method: "GET" })
         width_m: it.width_m,
         stud_m: it.stud_m,
         area_m2_spoken: it.area_m2_spoken,
+        soffits_m2: it.soffits_m2 ?? null,
+        fascia_m: it.fascia_m ?? null,
         surfaces: it.surfaces || [],
         doors: it.doors || 0,
         windows: it.windows || 0,
@@ -1127,6 +1177,7 @@ export const respondToPublicQuoteFn = createServerFn({ method: "POST" })
     );
     const quote = foundPage.items?.[0];
     if (!quote) throw new Error("Quote not found.");
+    if (isQuoteResponseLocked(quote)) return lockedQuoteResponse(quote);
 
     const business = quote.business_id
       ? await svc.entities.Business.get(quote.business_id).catch(() => null)

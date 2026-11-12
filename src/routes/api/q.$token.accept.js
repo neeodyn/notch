@@ -1,7 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { calculateQuoteTotals, formatMoney } from "@/lib/pricing";
-import { getBusinessSettings, notifyOwnerByEmail } from "@/lib/quote-engine.server";
+import {
+  getBusinessSettings,
+  isQuoteResponseLocked,
+  lockedQuoteResponse,
+  notifyOwnerByEmail,
+} from "@/lib/quote-engine.server";
 
 const BodySchema = z.object({
   acceptedName: z.string().min(2).max(160),
@@ -16,13 +21,22 @@ export const Route = createFileRoute("/api/q/$token/accept")({
         const token = String(params.token || "").trim();
         if (token.length < 6) return Response.json({ error: "Invalid token" }, { status: 400 });
 
-        const body = BodySchema.parse(await request.json());
         const base44 = context.getBase44();
         const svc = base44.asServiceRole;
 
         const found = await svc.entities.Quote.filter({ public_token: token }, { limit: 1 });
         const quote = found.items?.[0];
         if (!quote) return Response.json({ error: "Not found" }, { status: 404 });
+        if (isQuoteResponseLocked(quote)) return Response.json(lockedQuoteResponse(quote));
+
+        const parsedBody = BodySchema.safeParse(await request.json().catch(() => null));
+        if (!parsedBody.success) {
+          return Response.json(
+            { error: "Type your full name and tick the agreement to accept." },
+            { status: 400 }
+          );
+        }
+        const body = parsedBody.data;
 
         const business = quote.business_id
           ? await svc.entities.Business.get(quote.business_id).catch(() => null)
@@ -90,6 +104,7 @@ export const Route = createFileRoute("/api/q/$token/accept")({
           ok: true,
           status: "accepted",
           accepted_at: nowIso,
+          accepted_name: body.acceptedName.trim(),
           total: totals.totalInclGst,
         });
       },

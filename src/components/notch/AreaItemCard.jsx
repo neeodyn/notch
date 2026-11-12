@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Camera, Crosshair, Split, Trash2, X } from "lucide-react";
-import { Image } from "@/components/ui/image";
+import { Camera, Split, Trash2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import AreaPhotoPanel from "@/components/notch/AreaPhotoPanel";
 import { toast } from "sonner";
 import PriceSourceBadge from "@/components/notch/PriceSourceBadge";
+import ExteriorMeasureFields from "@/components/notch/ExteriorMeasureFields";
 import {
   ALL_SURFACES,
   KIND_LABELS,
@@ -24,15 +25,14 @@ export default function AreaItemCard({
   onSplitOptionalCeiling,
   onMovePin,
   onAttachPhoto,
+  photoTargets = [],
+  onMovePhoto,
 }) {
   const [editingPrice, setEditingPrice] = useState(false);
   const [priceInput, setPriceInput] = useState(item.price != null ? String(item.price) : "");
   const [expandedEdit, setExpandedEdit] = useState(false);
-  const [markingSpot, setMarkingSpot] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-  const primaryPhoto = photos[0] || null;
-  const hasSpotPin = primaryPhoto && primaryPhoto.pin_x != null && primaryPhoto.pin_y != null;
   const isHighlighted = highlightedKeys.some((k) => k.startsWith(`area:${item.area_number}:`));
 
   const summaryLine = formatAreaSummaryLine(item, businessSettings, currency);
@@ -49,16 +49,6 @@ export default function AreaItemCard({
       price_source: val == null ? "none" : "owner",
     });
     setEditingPrice(false);
-  }
-
-  function handlePhotoTap(e) {
-    if (!primaryPhoto || !onMovePin) return;
-    if (!markingSpot && !hasSpotPin) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pin_x = Math.max(0.05, Math.min(0.95, (e.clientX - rect.left) / rect.width));
-    const pin_y = Math.max(0.05, Math.min(0.95, (e.clientY - rect.top) / rect.height));
-    onMovePin(primaryPhoto.id, pin_x, pin_y);
-    setMarkingSpot(false);
   }
 
   function toggleSurface(surf) {
@@ -91,62 +81,15 @@ export default function AreaItemCard({
         isHighlighted ? "field-changed-glow" : ""
       }`}
     >
-      {/* Room Photo with Optional "Mark a spot" Pin */}
-      {!item.is_optional_split && primaryPhoto?.url && (
-        <div
-          onClick={handlePhotoTap}
-          className={`relative aspect-[16/10] w-full overflow-hidden bg-zinc-900 ${
-            markingSpot || hasSpotPin ? "cursor-crosshair" : ""
-          }`}
-        >
-          <Image
-            src={primaryPhoto.url}
-            alt={item.name || `Area ${item.area_number}`}
-            className="h-full w-full object-cover"
-          />
-
-          {hasSpotPin && (
-            <span
-              style={{
-                left: `${primaryPhoto.pin_x * 100}%`,
-                top: `${primaryPhoto.pin_y * 100}%`,
-              }}
-              className="absolute flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-primary text-[13px] font-bold text-white shadow-md"
-            >
-              {item.area_number}
-            </span>
-          )}
-
-          <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5">
-            {hasSpotPin ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMovePin(primaryPhoto.id, null, null);
-                }}
-                className="flex min-h-[36px] items-center gap-1 rounded-xl bg-black/70 px-3 text-[12px] font-semibold text-white backdrop-blur-md hover:bg-black/85"
-              >
-                <X className="h-3.5 w-3.5" />
-                <span>Clear spot</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMarkingSpot((m) => !m);
-                }}
-                className={`flex min-h-[36px] items-center gap-1.5 rounded-xl px-3 text-[12px] font-semibold text-white backdrop-blur-md ${
-                  markingSpot ? "bg-primary" : "bg-black/65 hover:bg-black/80"
-                }`}
-              >
-                <Crosshair className="h-3.5 w-3.5" />
-                <span>{markingSpot ? "Tap photo to place spot" : "Mark a spot"}</span>
-              </button>
-            )}
-          </div>
-        </div>
+      {/* Room photos in snap order, with "Mark a spot" and "Move to…" */}
+      {!item.is_optional_split && (
+        <AreaPhotoPanel
+          item={item}
+          photos={photos}
+          targets={photoTargets}
+          onMovePin={onMovePin}
+          onMovePhoto={onMovePhoto}
+        />
       )}
 
       <div className="p-4 sm:p-5">
@@ -295,7 +238,7 @@ export default function AreaItemCard({
               </button>
             )}
 
-            {!item.is_optional_split && !primaryPhoto && (
+            {!item.is_optional_split && photos.length === 0 && (
               <label className="flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-xl border border-border px-3 text-[14px] font-medium text-muted-foreground hover:text-foreground">
                 <Camera className="h-4 w-4" />
                 <span>{uploadingPhoto ? "Saving…" : "Add photo"}</span>
@@ -351,23 +294,7 @@ export default function AreaItemCard({
             </div>
 
             {item.kind === "exterior" ? (
-              <label className="block">
-                <span className="text-[12px] font-medium text-muted-foreground">
-                  Exterior area (m²)
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  defaultValue={item.area_m2_spoken ?? ""}
-                  onBlur={(e) =>
-                    onUpdateItem(item.id, {
-                      area_m2_spoken: e.target.value === "" ? null : Number(e.target.value),
-                    })
-                  }
-                  className="tabular-money mt-1 h-11 w-full rounded-xl border border-input bg-card px-3 text-[15px]"
-                />
-              </label>
+              <ExteriorMeasureFields item={item} onUpdateItem={onUpdateItem} />
             ) : (
               <div className="grid grid-cols-3 gap-2.5">
                 <label className="block">

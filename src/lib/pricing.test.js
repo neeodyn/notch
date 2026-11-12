@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  STARTER_PRICE_BOOK,
   computeAreaMeasurements,
   computePriceBookFigure,
   priceSingleItem,
@@ -8,8 +9,12 @@ import {
   calculateQuoteTotals,
   matchPhotosToItems,
   formatAreaSummaryLine,
+  formatSurfaceMetricsList,
   formatMoney,
+  describeMissingMeasurements,
+  pruneResolvedMeasurementNotes,
 } from "./pricing.js";
+import { listPhotoTargets, orderPhotosBySnap, resolvePhotoTarget } from "./photos.js";
 
 test("SPEC benchmark: lounge 5 x 4 m, stud 2.4 -> walls 38.88 m2, ceiling 20 m2 -> 864.32 -> 870", () => {
   const lounge = {
@@ -70,6 +75,120 @@ test("Exterior uses area_m2_spoken with prep and coat multipliers plus doors/win
   };
   // 100 * 25 * 1.4 * 1.0 + 100 + 160 = 3500 + 260 = 3760
   assert.equal(computePriceBookFigure(ext, book), 3760);
+});
+
+test("Exterior 180 m² weatherboards + soffits + fascia with no soffit/fascia measures equals the weatherboards-only figure (5040)", () => {
+  const [item] = expandAreasToQuoteItems(
+    [
+      {
+        area_number: 1,
+        name: "Exterior",
+        kind: "exterior",
+        area_m2_spoken: 180,
+        surfaces: ["weatherboards", "soffits", "fascia"],
+        coats: 2,
+        prep: "standard",
+      },
+    ],
+    STARTER_PRICE_BOOK
+  );
+
+  const weatherboardsOnly = computePriceBookFigure(
+    { ...item, surfaces: ["weatherboards"] },
+    STARTER_PRICE_BOOK
+  );
+  assert.equal(weatherboardsOnly, 5040);
+  assert.equal(item.price_book_estimate, weatherboardsOnly);
+  assert.equal(item.price, 5040);
+  assert.equal(item.price_source, "price_book");
+
+  const meas = computeAreaMeasurements(item);
+  assert.equal(meas.weatherboardsM2, 180);
+  assert.equal(meas.soffitsM2, 0);
+  assert.equal(meas.fasciaM, 0);
+
+  assert.deepEqual(describeMissingMeasurements([item]), [
+    "Exterior: soffit area not stated",
+    "Exterior: fascia length not stated",
+  ]);
+  assert.equal(formatSurfaceMetricsList(item), "weatherboards 180 m², soffits, fascia");
+});
+
+test("Soffits price from soffits_m2 and fascia from fascia_m metres", () => {
+  const item = {
+    name: "Exterior",
+    kind: "exterior",
+    area_m2_spoken: 180,
+    soffits_m2: 20,
+    fascia_m: 40,
+    surfaces: ["weatherboards", "soffits", "fascia"],
+    coats: 2,
+    prep: "standard",
+  };
+  // 180 * 28 + 20 * 24 + 40 * 22 = 5040 + 480 + 880 = 6400
+  assert.equal(computePriceBookFigure(item, STARTER_PRICE_BOOK), 6400);
+  assert.deepEqual(describeMissingMeasurements([priceSingleItem(item, STARTER_PRICE_BOOK)]), []);
+  assert.equal(
+    formatSurfaceMetricsList(item),
+    "weatherboards 180 m², soffits 20 m², fascia 40 m"
+  );
+});
+
+test("Interior fascia uses the floor perimeter; square metres are never used as metres", () => {
+  const interior = {
+    kind: "interior",
+    length_m: 5,
+    width_m: 4,
+    surfaces: ["fascia"],
+    coats: 2,
+    prep: "standard",
+  };
+  assert.equal(computeAreaMeasurements(interior).fasciaM, 18);
+  // 18 m * 22 = 396 -> 400
+  assert.equal(computePriceBookFigure(interior, STARTER_PRICE_BOOK), 400);
+
+  const exteriorFasciaOnly = {
+    kind: "exterior",
+    area_m2_spoken: 180,
+    surfaces: ["fascia"],
+    coats: 2,
+    prep: "standard",
+  };
+  assert.equal(computeAreaMeasurements(exteriorFasciaOnly).fasciaM, 0);
+  const priced = priceSingleItem(exteriorFasciaOnly, STARTER_PRICE_BOOK);
+  assert.equal(priced.price, null);
+  assert.equal(priced.price_source, "none");
+});
+
+test("Measurement notes skip painter-priced items and clear once resolved", () => {
+  const spoken = priceSingleItem(
+    {
+      name: "Exterior",
+      kind: "exterior",
+      area_m2_spoken: 180,
+      surfaces: ["weatherboards", "soffits"],
+      spoken_price: 6000,
+    },
+    STARTER_PRICE_BOOK
+  );
+  assert.deepEqual(describeMissingMeasurements([spoken]), []);
+
+  const notes = [
+    "Exterior: soffit area not stated",
+    "Exterior: fascia length not stated",
+    "Lounge: stud height not stated (wall m² shown using 2.4 m default stud)",
+  ];
+  const measuredSoffits = {
+    name: "Exterior",
+    kind: "exterior",
+    area_m2_spoken: 180,
+    soffits_m2: 25,
+    surfaces: ["weatherboards", "soffits", "fascia"],
+  };
+  assert.deepEqual(pruneResolvedMeasurementNotes(notes, [measuredSoffits]), [
+    "Exterior: fascia length not stated",
+    "Lounge: stud height not stated (wall m² shown using 2.4 m default stud)",
+  ]);
 });
 
 test("Priority: spoken_price beats price book, flags <0.5x or >2x, null when neither exists", () => {
@@ -185,4 +304,30 @@ test("matchPhotosToItems matches taken_at_s to area segment spans", () => {
   );
   assert.equal(matched[0].item_id, "a1");
   assert.equal(matched[1].item_id, "a2");
+});
+
+test("Photos number in snap order and resolve to their area for Move to…", () => {
+  const ordered = orderPhotosBySnap([
+    { id: "upload", created_date: "2026-11-12T03:10:00.000Z", taken_at_s: 0 },
+    { id: "snap2", created_date: "2026-11-12T03:00:00.000Z", taken_at_s: 24 },
+    { id: "snap1", created_date: "2026-11-12T03:00:00.000Z", taken_at_s: 10 },
+  ]);
+  assert.deepEqual(ordered.map((p) => [p.id, p.snap_number]), [
+    ["snap1", 1],
+    ["snap2", 2],
+    ["upload", 3],
+  ]);
+
+  const targets = listPhotoTargets([
+    { id: "hall-ceiling", area_number: 2, name: "Hallway — Ceiling", is_optional_split: true },
+    { id: "hall", area_number: 2, name: "Hallway" },
+    { id: "lounge", area_number: 1, name: "Lounge" },
+  ]);
+  assert.deepEqual(targets, [
+    { itemId: "lounge", areaNumber: 1, name: "Lounge" },
+    { itemId: "hall", areaNumber: 2, name: "Hallway" },
+  ]);
+  assert.equal(resolvePhotoTarget({ item_id: "hall" }, targets).name, "Hallway");
+  // Item ids change on undo: fall back to the area number.
+  assert.equal(resolvePhotoTarget({ item_id: "gone", area_number: 1 }, targets).name, "Lounge");
 });

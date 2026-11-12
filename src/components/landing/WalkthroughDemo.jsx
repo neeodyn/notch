@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Camera, Check, Mic, Pause, Play, RotateCcw } from "lucide-react";
+import { Image } from "@/components/ui/image";
+import { NZ_IMAGERY } from "@/lib/nzImagery";
 
 const WALKTHROUGH_STEPS = [
   {
@@ -9,7 +11,7 @@ const WALKTHROUGH_STEPS = [
     stage: "Client & address",
     spoken:
       "Quote for Sarah Miller, 14 Kauri Street, Ponsonby, 021 555 0134. Thirty percent deposit.",
-    photoUrl: "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1000&q=80",
+    photoUrl: NZ_IMAGERY.exterior,
     snappedCount: 0,
     pin: null,
     exclGst: 0,
@@ -24,7 +26,7 @@ const WALKTHROUGH_STEPS = [
     stage: "Lounge · 5 × 4 m",
     spoken:
       "Lounge, five by four, stud two-four, walls and ceiling, two coats in Resene Alabaster, eleven hundred.",
-    photoUrl: "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1000&q=80",
+    photoUrl: NZ_IMAGERY.lounge,
     snappedCount: 1,
     pin: { n: 1, x: "64%", y: "28%" },
     exclGst: 1100,
@@ -46,7 +48,7 @@ const WALKTHROUGH_STEPS = [
     stage: "Hallway · 8 × 1.2 m",
     spoken:
       "Hallway, eight by one-two, walls only, ceiling optional at one ninety, four hundred.",
-    photoUrl: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1000&q=80",
+    photoUrl: NZ_IMAGERY.hallway,
     snappedCount: 2,
     pin: null,
     exclGst: 1500,
@@ -80,7 +82,7 @@ const WALKTHROUGH_STEPS = [
     stage: "GST & link ready",
     spoken:
       "Done. Square metres calculated, room photos matched, 15% GST itemised, ready to text Sarah from the driveway.",
-    photoUrl: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1000&q=80",
+    photoUrl: NZ_IMAGERY.exterior,
     snappedCount: 2,
     pin: null,
     exclGst: 1500,
@@ -164,7 +166,7 @@ export default function WalkthroughDemo() {
         {/* Camera + Voice Frame */}
         <div className="relative overflow-hidden rounded-[26px] bg-zinc-950 text-white lg:col-span-7 lg:min-h-[440px]">
           <div className="relative aspect-[16/11] w-full overflow-hidden sm:aspect-[16/10] lg:absolute lg:inset-0 lg:aspect-auto">
-            <img
+            <Image
               src={activeStep.photoUrl}
               alt={activeStep.stage}
               className="h-full w-full object-cover opacity-90 transition-opacity duration-300"
